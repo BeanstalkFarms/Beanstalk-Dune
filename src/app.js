@@ -1,6 +1,7 @@
 const { alchemy } = require('./provider.js');
 const { BEANSTALK, BEAN, PEPE } = require('./addresses.js');
 const { getBeanstalkContractAsync, getBalance } = require('./contracts/contracts.js');
+const { uploadCsv } = require('./dune-export.js');
 
 // recent mints: 18963933
 
@@ -12,3 +13,4 @@ async function logTestInfo() {
     console.log(`Harvestable index: ${harvestableNow}\nOlder harvestable index: ${harvestableThen}\nBEAN: ${beanBalance}\nPEPE: ${pepeBalance}`);
 }
 logTestInfo();
+uploadCsv('sample');
