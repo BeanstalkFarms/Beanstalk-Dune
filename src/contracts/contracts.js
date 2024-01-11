@@ -4,17 +4,19 @@ const { BEANSTALK, BEAN, USDC, WETH, PEPE, DECIMALS } = require('../addresses.js
 const beanAbi = require('./beanstalk.json');
 const erc20Abi = require('./erc20.json');
 
+const contracts = {};
 async function getContractAsync(address, abi) {
-    return new Contract(address, abi, await alchemy.config.getProvider());
+    const key = JSON.stringify({ address, abi });
+    if (contracts[key] == null) {
+        contracts[key] = new Contract(address, abi, await alchemy.config.getProvider());
+    }
+    return contracts[key];
 }
 
 // Generic for getting token balances
-const tokenContracts = {};
-async function getBalance(token, holder, blockTag = 'latest') {
-    if (tokenContracts[token] == null) {
-        tokenContracts[token] = await getContractAsync(token, erc20Abi);
-    }
-    const balance = await tokenContracts[token].callStatic.balanceOf(holder, { blockTag: blockTag });
+async function getBalance(token, holder, blockNumber = 'latest') {
+    const erc20Contract = await getContractAsync(token, erc20Abi);
+    const balance = await erc20Contract.callStatic.balanceOf(holder, { blockTag: blockNumber });
     const divisor = BigNumber.from('1' + '0'.repeat(DECIMALS[token]));
     return balance.div(divisor).toNumber();
 }
