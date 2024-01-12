@@ -1,10 +1,12 @@
-const { initResultsTable, addContractResults } = require('./table-builder.js');
+const { initResultsTable, addContractResults, initResultFile, appendResults } = require('./table-builder.js');
 const { getBeanstalkContractAsync } = require('../contracts/contracts.js');
 
 /* 
     For now, intentionally leaving out some fields which may be of interest. It will be necessary
     to implement support for easily adding new columns to already processed entries.
 */
+const FILE_NAME = 'fertilizer';
+const HEADER = 'sprouts_paid,sprouts_unpaid,sprouts_incurred,fert_sold,bpf,fert_available,recap_percent'
 const CONTRACT_INVOCATIONS = [
     {
         // Sprouts paid back so far
@@ -40,7 +42,7 @@ const CONTRACT_INVOCATIONS = [
 
 async function buildFertilizer() {
 
-    const table = initResultsTable();
+    const table = await initResultsTable();
 
     // Firstly get some information from the contracts directly
     await addContractResults(table, await getBeanstalkContractAsync(), CONTRACT_INVOCATIONS);
@@ -48,8 +50,13 @@ async function buildFertilizer() {
     // Computed values
     const recapPercent = table.getActiveFertilizer / (table.getActiveFertilizer + table.remainingRecapitalization / Math.pow(10, 6));
     table.push(recapPercent, 'recapPercent');
-    console.log(table);
+    
+    await appendResults(FILE_NAME, table);
 }
+
+(async function init() {
+    initResultFile(FILE_NAME, HEADER);
+})();
 
 module.exports = {
     buildFertilizer: buildFertilizer

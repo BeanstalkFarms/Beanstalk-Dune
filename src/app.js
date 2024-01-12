@@ -4,7 +4,7 @@ const { getBeanstalkContractAsync, getBalance } = require('./contracts/contracts
 const { uploadCsv } = require('./dune-export.js');
 const { buildFertilizer } = require('./tables/fertilizer.js');
 
-// recent mints: 18963933
+// recent mints started: 18963933
 
 async function logTestInfo() {
     const harvestableNow = await getBeanstalkContractAsync().then(bc => bc.callStatic.harvestableIndex());

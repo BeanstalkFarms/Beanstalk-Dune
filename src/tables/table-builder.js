@@ -1,11 +1,20 @@
+const { alchemy } = require('../provider.js');
+const fs = require('fs');
+
+// These two will always be the first entries of every table
+const HEADER_PREFIX = 'block,timestamp,';
+
 // Allow store the result in this array using an optional name for convenience
-function initResultsTable() {
+async function initResultsTable(blockNumber = 'latest') {
 
     const results = [];
     results.push = (item, name) => {
         Array.prototype.push.call(results, item);
         name && (results[name] = item);
     }
+    const blockInfo = await alchemy.core.getBlock(blockNumber);
+    results.push(blockInfo.number, 'block');
+    results.push(new Date(blockInfo.timestamp * Math.pow(10, 3)).toISOString(), 'timestamp');
     return results;
 }
 
@@ -30,7 +39,21 @@ async function addContractResults(results, contract, invocations, blockNumber = 
     return results;
 }
 
+// First time setup of a file with the appropriate header
+async function initResultFile(fileName, header) {
+    const filePath = `results/${fileName}.csv`;
+    if (!fs.existsSync(filePath)) {
+        await fs.promises.appendFile(`results/${fileName}.csv`, HEADER_PREFIX + header + '\n');
+    }
+}
+
+async function appendResults(fileName, result) {
+    await fs.promises.appendFile(`results/${fileName}.csv`, result.join(',') + '\n');
+}
+
 module.exports = {
     initResultsTable: initResultsTable,
-    addContractResults: addContractResults
+    addContractResults: addContractResults,
+    initResultFile: initResultFile,
+    appendResults: appendResults
 };
