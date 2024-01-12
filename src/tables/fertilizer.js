@@ -47,7 +47,7 @@ async function buildFertilizer() {
     // Firstly get some information from the contracts directly
     await addContractResults(table, await getBeanstalkContractAsync(), CONTRACT_INVOCATIONS);
 
-    // Computed values
+    // Computed values: recapitalization percentage
     const recapPercent = table.getActiveFertilizer / (table.getActiveFertilizer + table.remainingRecapitalization / Math.pow(10, 6));
     table.push(recapPercent, 'recapPercent');
     
@@ -55,7 +55,7 @@ async function buildFertilizer() {
 }
 
 (async function init() {
-    initResultFile(FILE_NAME, HEADER);
+    await initResultFile(FILE_NAME, HEADER);
 })();
 
 module.exports = {

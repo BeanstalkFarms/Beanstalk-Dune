@@ -1,4 +1,5 @@
 const { alchemy } = require('../provider.js');
+const { getLastProcessed, setLastProcessed } = require('./cursor.js');
 const fs = require('fs');
 
 // These two will always be the first entries of every table
@@ -43,12 +44,13 @@ async function addContractResults(results, contract, invocations, blockNumber = 
 async function initResultFile(fileName, header) {
     const filePath = `results/${fileName}.csv`;
     if (!fs.existsSync(filePath)) {
-        await fs.promises.appendFile(`results/${fileName}.csv`, HEADER_PREFIX + header + '\n');
+        await fs.promises.appendFile(filePath, HEADER_PREFIX + header + '\n');
     }
 }
 
 async function appendResults(fileName, result) {
     await fs.promises.appendFile(`results/${fileName}.csv`, result.join(',') + '\n');
+    await setLastProcessed(fileName, result.block);
 }
 
 module.exports = {
