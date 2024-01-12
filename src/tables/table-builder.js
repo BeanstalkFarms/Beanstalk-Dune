@@ -1,5 +1,5 @@
 const { alchemy } = require('../provider.js');
-const { getLastProcessed, setLastProcessed } = require('./cursor.js');
+const { setLastProcessed } = require('./cursor.js');
 const fs = require('fs');
 
 // These two will always be the first entries of every table
@@ -32,10 +32,14 @@ async function initResultsTable(blockNumber = 'latest') {
  */
 async function addContractResults(results, contract, invocations, blockNumber = 'latest') {
 
+    const promises = [];
     for (invocation of invocations) {
-        const contractResult = await contract.callStatic[invocation.name](...(invocation.parameters ?? []), { blockTag: blockNumber });
-        const transformedResult = invocation.transformation?.(contractResult) ?? contractResult;
-        results.push(transformedResult, invocation.name);
+        promises.push(contract.callStatic[invocation.name](...(invocation.parameters ?? []), { blockTag: blockNumber }));
+    }
+    const resolved = await Promise.all(promises);
+    for (let i = 0; i < invocations.length; ++i) {
+        const transformedResult = invocations[i].transformation?.(resolved[i]) ?? resolved[i];
+        results.push(transformedResult, invocations[i].name);
     }
     return results;
 }

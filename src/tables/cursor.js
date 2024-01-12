@@ -9,7 +9,7 @@ function getLastProcessed(fileName) {
     const pattern = new RegExp(`${fileName},(\\d+)`);
     const match = cursorFile.match(pattern);
     
-    return match?.[1] ?? -1;
+    return parseInt(match?.[1] ?? -1);
 }
 
 // Updates the last block number that has been processed for this result file
