@@ -1,3 +1,4 @@
+const { alchemy } = require('../provider.js');
 const { initResultsTable, addContractResults, initResultFile, appendResults } = require('./table-builder.js');
 const { getLastProcessed } = require('./cursor.js');
 const { getBeanstalkContractAsync } = require('../contracts/contracts.js');
@@ -6,7 +7,7 @@ const { getBeanstalkContractAsync } = require('../contracts/contracts.js');
 const FERT_DEPLOYMENT = 14910573;
 const REPLANT = 15278963;
 
-/* 
+/*
     For now, intentionally leaving out some fields which may be of interest. It will be necessary
     to implement support for easily adding new columns to already processed entries.
 */
@@ -51,15 +52,26 @@ async function buildFertilizer() {
     //  could use nulls, or could use different ABI altogether for different block ranges.
     // await appendBlock(FERT_DEPLOYMENT);
 
+    // TODO: consider how each table should configure this value
+    const end = await alchemy.core.getBlockNumber();
+
     const FREQUENCY = 300;
     const lastProcessed = getLastProcessed(FILE_NAME);
-    const nextBlock = lastProcessed === -1 ? REPLANT : lastProcessed + FREQUENCY;
-    for (let i = 0; i < 5; ++i) {
-        await appendBlock(nextBlock + FREQUENCY*i);
+    const blockForIteration = (i) => (lastProcessed === -1 ? REPLANT : lastProcessed + FREQUENCY) + FREQUENCY*i;
+    for (let i = 0; blockForIteration(i) < end; ++i) {
+        try {
+            console.log(`${new Date().toISOString()}: analyzeBlock(${blockForIteration(i)})`);
+            await analyzeBlock(blockForIteration(i));
+        } catch (e) {
+            // This might not be necessary anymore now that retryable was added
+            console.log('encountered exception, continuing:', e);
+            --i;
+        }
     }
+    return FILE_NAME;
 }
 
-async function appendBlock(blockNumber) {
+async function analyzeBlock(blockNumber) {
 
     const table = await initResultsTable(blockNumber);
 

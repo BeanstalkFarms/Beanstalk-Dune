@@ -21,7 +21,7 @@ function uploadCsv(name) {
         console.log('Response:', response.data);
     })
     .catch(error => {
-        console.error('Error:', error.message);
+        console.error('Error:', error.message, error.response.data);
     });
 }
 

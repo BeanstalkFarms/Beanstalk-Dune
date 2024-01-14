@@ -15,9 +15,9 @@ async function logTestInfo() {
 }
 // logTestInfo();
 // uploadCsv('sample');
-buildFertilizer();
+buildFertilizer().then(uploadCsv);
 
 // TODO:
 // Proof of concept of using subgraph
-// Have some recognition of block number -> which ABI to use, and handling for when some functions aren't accessible
+// Have some recognition of block number -> which ABI to use, or when to stop, and handling when functions dont exist
 // Support for adjusting columns/reiterating and adding to existing datasets rather than having to recreate everything
