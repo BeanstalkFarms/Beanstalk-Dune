@@ -16,6 +16,7 @@ async function logTestInfo() {
 // logTestInfo();
 // uploadCsv('sample');
 buildFertilizer().then(uploadCsv);
+  
 
 // TODO:
 // Proof of concept of using subgraph

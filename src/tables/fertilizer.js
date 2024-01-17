@@ -12,7 +12,7 @@ const REPLANT = 15278963;
     to implement support for easily adding new columns to already processed entries.
 */
 const FILE_NAME = 'fertilizer';
-const HEADER = 'sprouts_paid,sprouts_unpaid,sprouts_incurred,fert_sold,bpf,fert_available,recap_percent'
+const HEADER = 'sprouts_paid,sprouts_unpaid,sprouts_incurred,fert_active,bpf,fert_available,recap_percent'
 const CONTRACT_INVOCATIONS = [
     {
         // Sprouts paid back so far
@@ -30,7 +30,7 @@ const CONTRACT_INVOCATIONS = [
         transformation: x => x.toNumber()
     },
     {
-        // Amount of fertilizer which has been sold
+        // Amount of active fertilizer
         name: 'getActiveFertilizer',
         transformation: x => x.toNumber()
     },

@@ -12,8 +12,8 @@ const headers = {
 function uploadCsv(name) {
     
     const requestBody = {
-        table_name: 'test table',
-        description: 'just a test table',
+        table_name: name,
+        description: name,
         data: fs.readFileSync(`results/${name}.csv`, 'utf8'),
     };
 
