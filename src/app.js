@@ -3,6 +3,7 @@ const { BEANSTALK, BEAN, PEPE } = require('./addresses.js');
 const { getBeanstalkContractAsync, getBalance } = require('./contracts/contracts.js');
 const { uploadCsv } = require('./dune-export.js');
 const { buildFertilizer } = require('./tables/fertilizer.js');
+const { buildUnripe } = require('./tables/unripe.js');
 
 // recent mints started: 18963933
 
@@ -15,7 +16,8 @@ async function logTestInfo() {
 }
 // logTestInfo();
 // uploadCsv('sample');
-buildFertilizer().then(uploadCsv);
+// buildFertilizer().then(uploadCsv);
+buildUnripe()
   
 
 // TODO:

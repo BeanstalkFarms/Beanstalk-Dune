@@ -60,7 +60,7 @@ async function buildFertilizer() {
     const blockForIteration = (i) => (lastProcessed === -1 ? REPLANT : lastProcessed + FREQUENCY) + FREQUENCY*i;
     for (let i = 0; blockForIteration(i) < end; ++i) {
         try {
-            console.log(`${new Date().toISOString()}: analyzeBlock(${blockForIteration(i)})`);
+            console.log(`${new Date().toISOString()}: fertilizer.analyzeBlock(${blockForIteration(i)})`);
             await analyzeBlock(blockForIteration(i));
         } catch (e) {
             // This might not be necessary anymore now that retryable was added
