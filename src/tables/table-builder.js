@@ -48,10 +48,11 @@ function retryable(asyncFunction, timeLimitMs = 10000, retryCount = 2) {
  *   }
  * ]
  */
-async function addContractResults(results, contract, invocations, blockNumber = 'latest') {
+async function addContractResults(results, invocations, blockNumber = 'latest') {
 
     const promises = [];
     for (invocation of invocations) {
+        const contract = await invocation.contractThenable();
         promises.push(
             retryable(
                 () => contract.callStatic[invocation.name](...(invocation.parameters ?? []), { blockTag: blockNumber }),

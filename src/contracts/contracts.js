@@ -23,6 +23,7 @@ async function getBalance(token, holder, blockNumber = 'latest') {
 
 module.exports = {
     getBeanstalkContractAsync: async () => getContractAsync(BEANSTALK, beanAbi),
+    createAsyncERC20ContractGetter: (address) => async () => getContractAsync(address, erc20Abi),
     getBalance: getBalance
     // getBEANContractAsync: async () => getContractAsync(BEAN, erc20Abi),
     // getUSDCContractAsync: async () => getContractAsync(USDC, erc20Abi),

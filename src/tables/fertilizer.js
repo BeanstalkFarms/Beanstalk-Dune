@@ -17,31 +17,37 @@ const CONTRACT_INVOCATIONS = [
     {
         // Sprouts paid back so far
         name: 'totalFertilizedBeans',
+        contractThenable: getBeanstalkContractAsync,
         transformation: x => x.toNumber()
     },
     {
         // Unpaid sprouts (not including unsold Fertilizer)
         name: 'totalUnfertilizedBeans',
+        contractThenable: getBeanstalkContractAsync,
         transformation: x => x.toNumber()
     },
     {
         // Total sprout debt incurred so far
         name: 'totalFertilizerBeans',
+        contractThenable: getBeanstalkContractAsync,
         transformation: x => x.toNumber()
     },
     {
         // Amount of active fertilizer
         name: 'getActiveFertilizer',
+        contractThenable: getBeanstalkContractAsync,
         transformation: x => x.toNumber()
     },
     {
         // Amount of beans paid out to each bought fertilizer
         name: 'beansPerFertilizer',
+        contractThenable: getBeanstalkContractAsync,
         transformation: x => x.toNumber()
     },
     {
         // Available fertilizer for purchase
         name: 'remainingRecapitalization',
+        contractThenable: getBeanstalkContractAsync,
         transformation: x => x.toNumber()
     }
 ];
@@ -76,7 +82,7 @@ async function analyzeBlock(blockNumber) {
     const table = await initResultsTable(blockNumber);
 
     // Firstly get some information from the contracts directly
-    await addContractResults(table, await getBeanstalkContractAsync(), CONTRACT_INVOCATIONS, blockNumber);
+    await addContractResults(table, CONTRACT_INVOCATIONS, blockNumber);
 
     // Computed values: recapitalization percentage
     const recapPercent = table.getActiveFertilizer / (table.getActiveFertilizer + table.remainingRecapitalization / Math.pow(10, 6));

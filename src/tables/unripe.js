@@ -1,22 +1,34 @@
 const { alchemy } = require('../provider.js');
 const { initResultsTable, addContractResults, initResultFile, appendResults } = require('./table-builder.js');
 const { getLastProcessed } = require('./cursor.js');
-const { getBeanstalkContractAsync } = require('../contracts/contracts.js');
+const { getBeanstalkContractAsync, createAsyncERC20ContractGetter } = require('../contracts/contracts.js');
 const { UNRIPE_BEAN, UNRIPE_LP } = require('../addresses.js');
 
 const REPLANT = 15278963;
 
 const FILE_NAME = 'unripe';
-const HEADER = 'percent_beans_recapped,percent_lp_recapped'
+const HEADER = 'unripe_bean_supply,unripe_lp_supply,percent_beans_recapped,percent_lp_recapped'
 const CONTRACT_INVOCATIONS = [
     {
+        name: 'totalSupply',
+        contractThenable: createAsyncERC20ContractGetter(UNRIPE_BEAN),
+        transformation: x => x / Math.pow(10, 6)
+    },
+    {
+        name: 'totalSupply',
+        contractThenable: createAsyncERC20ContractGetter(UNRIPE_LP),
+        transformation: x => x / Math.pow(10, 6)
+    },
+    {
         name: 'getRecapFundedPercent',
+        contractThenable: getBeanstalkContractAsync,
         parameters: [UNRIPE_BEAN],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         // Unpaid sprouts (not including unsold Fertilizer)
         name: 'getRecapFundedPercent',
+        contractThenable: getBeanstalkContractAsync,
         parameters: [UNRIPE_LP],
         transformation: x => x / Math.pow(10, 6)
     }
@@ -47,7 +59,7 @@ async function analyzeBlock(blockNumber) {
 
     const table = await initResultsTable(blockNumber);
 
-    await addContractResults(table, await getBeanstalkContractAsync(), CONTRACT_INVOCATIONS, blockNumber);
+    await addContractResults(table, CONTRACT_INVOCATIONS, blockNumber);
     
     await appendResults(FILE_NAME, table);
 }
