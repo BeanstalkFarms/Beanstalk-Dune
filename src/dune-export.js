@@ -8,20 +8,26 @@ const headers = {
     'X-Dune-Api-Key': process.env.DUNE_API_KEY
 };
 
-// NOTE: 200MB maximum
-function uploadCsv(name) {
-    
-    const requestBody = {
-        table_name: name,
-        description: name,
-        data: fs.readFileSync(`results/${name}.csv`, 'utf8'),
-    };
+// NOTE: 200MB maximum file size
+async function uploadCsv(name) {
 
-    axios.post(url, requestBody, { headers }).then(response => {
-        console.log('Response:', response.data);
-    })
-    .catch(error => {
-        console.error('Error:', error.message, error.response.data);
+    return new Promise((resolve, reject) => {
+    
+        const requestBody = {
+            table_name: name,
+            description: name,
+            data: fs.readFileSync(`results/${name}.csv`, 'utf8'),
+        };
+
+        axios.post(url, requestBody, { headers }).then(response => {
+            console.log('Response:', response.data);
+            resolve(response);
+        })
+        .catch(error => {
+            console.error('Error:', error.message, error.response.data);
+            reject(error);
+        });
+            
     });
 }
 

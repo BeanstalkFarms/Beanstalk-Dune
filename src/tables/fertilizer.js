@@ -5,7 +5,7 @@ const { getBeanstalkContractAsync } = require('../contracts/contracts.js');
 
 // Fertilizer is only relevant since the barn raise
 const FERT_DEPLOYMENT = 14910573;
-const REPLANT = 15278963;
+const REPLANT_FERTILIZATION = 15279874;
 
 /*
     For now, intentionally leaving out some fields which may be of interest. It will be necessary
@@ -63,16 +63,10 @@ async function buildFertilizer() {
 
     const FREQUENCY = 300;
     const lastProcessed = getLastProcessed(FILE_NAME);
-    const blockForIteration = (i) => (lastProcessed === -1 ? REPLANT : lastProcessed + FREQUENCY) + FREQUENCY*i;
+    const blockForIteration = (i) => (lastProcessed === -1 ? REPLANT_FERTILIZATION : lastProcessed + FREQUENCY) + FREQUENCY*i;
     for (let i = 0; blockForIteration(i) < end; ++i) {
-        try {
-            console.log(`${new Date().toISOString()}: fertilizer.analyzeBlock(${blockForIteration(i)})`);
-            await analyzeBlock(blockForIteration(i));
-        } catch (e) {
-            // This might not be necessary anymore now that retryable was added
-            console.log('encountered exception, continuing:', e);
-            --i;
-        }
+        console.log(`${new Date().toISOString()}: fertilizer.analyzeBlock(${blockForIteration(i)})`);
+        await analyzeBlock(blockForIteration(i));
     }
     return FILE_NAME;
 }
