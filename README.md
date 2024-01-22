@@ -1,6 +1,6 @@
 # Beanstalk Dune Analytics
 
-Analyzes the Beanstalk subgraph, contract events, storage, and more to create exports for display on the Dune dashboard.
+Analyzes the Beanstalk subgraph, contract view functions, events, storage, and more to create exports for display on the Dune dashboard.
 
 ## Getting Started
 
