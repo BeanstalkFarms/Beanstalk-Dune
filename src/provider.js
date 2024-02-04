@@ -9,5 +9,6 @@ const settings = {
 const alchemy = new Alchemy(settings);
 
 module.exports = {
-    alchemy: alchemy
+    alchemy: alchemy,
+    providerThenable: alchemy.config.getProvider()
 };

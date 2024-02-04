@@ -26,7 +26,7 @@ async function initResultsTable(blockNumber = 'latest') {
  * [
  *   {
  *     name: 'nameOfTheContractFunction',
- *     contractThenable: async function/object with .then function that will return the contract to use
+ *     asyncContractGetter: async function that will return the contract to use
  *     (optional) parameters: ['list of parameters', 'to the contract function'],
  *     (optional) transformation: (x) => `transforms the contract's result ${x}`
  *   }
@@ -36,7 +36,7 @@ async function addContractResults(results, invocations, blockNumber = 'latest') 
 
     const promises = [];
     for (invocation of invocations) {
-        const contract = await invocation.contractThenable();
+        const contract = await invocation.asyncContractGetter();
         promises.push(
             retryable(
                 () => contract.callStatic[invocation.name](...(invocation.parameters ?? []), { blockTag: blockNumber }),

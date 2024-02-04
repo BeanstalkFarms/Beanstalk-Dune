@@ -1,7 +1,7 @@
 const { alchemy } = require('../provider.js');
 const { initResultsTable, addContractResults, initResultFile, appendResults } = require('./table-builder.js');
 const { getLastProcessed } = require('./cursor.js');
-const { getBeanstalkContractAsync, createAsyncERC20ContractGetter } = require('../contracts/contracts.js');
+const { asyncBeanstalkContractGetter, createAsyncERC20ContractGetter } = require('../contracts/contracts.js');
 const { UNRIPE_BEAN, UNRIPE_LP } = require('../addresses.js');
 
 const REPLANT_FERTILIZATION = 15279874;
@@ -11,90 +11,90 @@ const HEADER = 'urbean_supply,urbean_underlying_one,urbean_chop_penalty,urbean_r
 const CONTRACT_INVOCATIONS = [
     {
         name: 'totalSupply',
-        contractThenable: createAsyncERC20ContractGetter(UNRIPE_BEAN),
+        asyncContractGetter: createAsyncERC20ContractGetter(UNRIPE_BEAN),
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getUnderlyingPerUnripeToken',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_BEAN],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getPenalty',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_BEAN],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getRecapFundedPercent',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_BEAN],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getPercentPenalty',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_BEAN],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getPenalizedUnderlying',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_BEAN, 1 * Math.pow(10, 6)],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getTotalUnderlying',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_BEAN],
         transformation: x => x / Math.pow(10, 6)
     },
     // Underyling LP tokens (BEAN3CRV and BEANETH) have 18 decimals
     {
         name: 'totalSupply',
-        contractThenable: createAsyncERC20ContractGetter(UNRIPE_LP),
+        asyncContractGetter: createAsyncERC20ContractGetter(UNRIPE_LP),
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getUnderlyingPerUnripeToken',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_LP],
         transformation: x => x / Math.pow(10, 18)
     },
     {
         name: 'getPenalty',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_LP],
         transformation: x => x / Math.pow(10, 18)
     },
     {
         name: 'getRecapFundedPercent',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_LP],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getPercentPenalty',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_LP],
         transformation: x => x / Math.pow(10, 6)
     },
     {
         name: 'getPenalizedUnderlying',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_LP, 1 * Math.pow(10, 6)],
         transformation: x => x / Math.pow(10, 18)
     },
     {
         name: 'getTotalUnderlying',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_LP],
         transformation: x => x / Math.pow(10, 18)
     },
     {
         name: 'getUnderlyingToken',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         parameters: [UNRIPE_LP]
     }
 ];

@@ -1,7 +1,7 @@
 const { alchemy } = require('../provider.js');
 const { initResultsTable, addContractResults, initResultFile, appendResults } = require('./table-builder.js');
 const { getLastProcessed } = require('./cursor.js');
-const { getBeanstalkContractAsync } = require('../contracts/contracts.js');
+const { asyncBeanstalkContractGetter } = require('../contracts/contracts.js');
 
 // Fertilizer is only relevant since the barn raise
 const FERT_DEPLOYMENT = 14910573;
@@ -17,37 +17,37 @@ const CONTRACT_INVOCATIONS = [
     {
         // Sprouts paid back so far
         name: 'totalFertilizedBeans',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         transformation: x => x.toNumber()
     },
     {
         // Unpaid sprouts (not including unsold Fertilizer)
         name: 'totalUnfertilizedBeans',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         transformation: x => x.toNumber()
     },
     {
         // Total sprout debt incurred so far
         name: 'totalFertilizerBeans',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         transformation: x => x.toNumber()
     },
     {
         // Amount of active fertilizer
         name: 'getActiveFertilizer',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         transformation: x => x.toNumber()
     },
     {
         // Amount of beans paid out to each bought fertilizer
         name: 'beansPerFertilizer',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         transformation: x => x.toNumber()
     },
     {
         // Available fertilizer for purchase
         name: 'remainingRecapitalization',
-        contractThenable: getBeanstalkContractAsync,
+        asyncContractGetter: asyncBeanstalkContractGetter,
         transformation: x => x.toNumber()
     }
 ];
