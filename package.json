@@ -1,7 +1,7 @@
 {
   "scripts": {
     "start": "node src/app.js",
-    "playground": "node src/playground.js"
+    "playground": "node test/playground.js"
   },
   "dependencies": {
     "alchemy-sdk": "^3.1.1",
