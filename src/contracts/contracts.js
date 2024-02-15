@@ -1,7 +1,7 @@
 const { alchemy } = require('../provider.js');
 const { Contract, BigNumber } = require('alchemy-sdk');
 const { BEANSTALK, DECIMALS } = require('../addresses.js');
-const beanAbi = require('./beanstalk.json');
+const beanAbi = require('./beanstalk/abi.json');
 const erc20Abi = require('./erc20.json');
 
 const contracts = {};

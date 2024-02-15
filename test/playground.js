@@ -60,7 +60,7 @@ async function contractData() {
         const address = '0xef49ffe2c1a6f64cfe18a26b3efe7d87830838c8';
         const encoded1 = abiCoder.encode(["address", "uint256"], [address, 49]);
         const keccak1 = ethers.keccak256(encoded1);
-        const rootsSlot = BigNumber.from(keccak1).add(14).toHexString();
+        const rootsSlot = BigNumber.from(keccak1).add(14);
         const roots = await beanstalkStorage(rootsSlot);
         console.log('roots?', parseInt(roots, 16));
     }
@@ -79,4 +79,6 @@ function getStorageBytes(data, start, size) {
     return data.substring(lower, upper);
 }
 
-contractData();
+// contractData();
+
+require('./contract-storage.js');
