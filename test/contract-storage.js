@@ -1,6 +1,8 @@
 const ethers = require('ethers');
 const abiCoder = new ethers.AbiCoder();
 const { BigNumber } = require('alchemy-sdk');
+const { providerThenable } = require('../src/provider.js');
+const { BEANSTALK } = require('../src/addresses.js');
 const { storage, types } = require('../src/contracts/beanstalk/storage.json');
 
 function transformMembersList(members) {
@@ -11,73 +13,97 @@ function transformMembersList(members) {
     return retval;
 }
 
-const handler = {
-    get: function(target, property) {
-        if (['storageSlot_jslib', 'slotOffset_jslib', 'currentType_jslib'].includes(property)) {
-            return target[property];
-        } else {
-            // console.debug(target);
-            console.debug('Current type:', target.currentType_jslib, '| Seeking property:', property);
-            let returnProxy;
-            const currentType = types[target.currentType_jslib];
-            if (currentType.hasOwnProperty('members')) {
-                // Struct
-                const members = transformMembersList(currentType.members);
-                const field = members[property];
-                returnProxy = new Proxy(types[field.type], handler);
-                returnProxy.storageSlot_jslib = target.storageSlot_jslib.add(parseInt(field.slot));
-                returnProxy.slotOffset_jslib = field.offset;
-                returnProxy.currentType_jslib = field.type;
-            } else if (currentType.hasOwnProperty('value')) {
-                // Mapping
-                returnProxy = new Proxy(types[currentType.value], handler);
-                const keyType = currentType.key.slice(2); // remove the "t_"
-                console.debug('in mapping', keyType, property, target.storageSlot_jslib);
-                const encoded = abiCoder.encode([keyType, "uint256"], [property, target.storageSlot_jslib.toHexString()]);
-                const keccak = ethers.keccak256(encoded);
-                returnProxy.storageSlot_jslib = BigNumber.from(keccak);
-                returnProxy.slotOffset_jslib = 0;
-                returnProxy.currentType_jslib = currentType.value;
+/**
+ * Constructs a handler function to be used recursively with Proxy.
+ * This allows accessing contract storage much like one would in solidity.
+ * For example, we can write something like this to traverse multiple structs and mappings:
+ * > await beanstalk.s.a[account].field.plots[index]
+ */
+async function makeHandler(contractAddress, blockNumber = 'latest') {
+    const provider = await providerThenable;
+    const handler = {
+        get: function(target, property) {
+            if (['storageSlot_jslib', 'currentType_jslib'].includes(property)) {
+                return target[property];
+            } else {
+                // console.debug(target);
+                // console.debug('Current type:', target.currentType_jslib, '| Seeking property:', property);
+                let returnProxy;
+                let slotOffset = 0;
+                const currentType = types[target.currentType_jslib];
+                if (currentType.hasOwnProperty('members')) {
+                    // Struct
+                    const members = transformMembersList(currentType.members);
+                    const field = members[property];
+                    returnProxy = new Proxy(types[field.type], handler);
+                    returnProxy.storageSlot_jslib = target.storageSlot_jslib.add(parseInt(field.slot));
+                    returnProxy.currentType_jslib = field.type;
+                    slotOffset = field.offset;
+                } else if (currentType.hasOwnProperty('value')) {
+                    // Mapping
+                    returnProxy = new Proxy(types[currentType.value], handler);
+                    const keyType = currentType.key.slice(2); // remove the "t_"
+                    // console.debug('in mapping', keyType, property, target.storageSlot_jslib);
+                    const encoded = abiCoder.encode([keyType, "uint256"], [property, target.storageSlot_jslib.toHexString()]);
+                    const keccak = ethers.keccak256(encoded);
+                    returnProxy.storageSlot_jslib = BigNumber.from(keccak);
+                    returnProxy.currentType_jslib = currentType.value;
+                }
+                
+                const returnType = types[returnProxy.currentType_jslib];
+                if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
+                    // There are no further members, therefore this must be the end.
+                    // Return is a thenable object. This function itself cannot be async since it
+                    // chains many calls together and needs to avoid invoking its own .then
+                    console.log('Retrieving storage slot:', returnProxy.storageSlot_jslib.toHexString());
+                    return provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib, blockNumber)
+                            .then(valueAtSlot => getStorageBytes(valueAtSlot, slotOffset, returnType.numberOfBytes));
+                }
+                return returnProxy;
             }
-
-            // console.log(currentType);
-            
-            const returnType = types[returnProxy.currentType_jslib];
-            if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
-                // There are no further members, therefore this must be the end.
-                // use numberOfBytes
-                return [returnProxy.storageSlot_jslib, returnProxy.slotOffset_jslib];
-            }
-            return returnProxy;
-        }
-    },
-};
-
-// Transform all storage variables from an array into an object, such that labels are extracted as keys,
-// and the underlying object is using a custom proxy.
-const beanstalk = {};
-for (const field of storage) {
-    beanstalk[field.label] = new Proxy(field, handler);
-    beanstalk[field.label].storageSlot_jslib = BigNumber.from(0);
-    beanstalk[field.label].slotOffset_jslib = 0;
-    // TODO: need numberOfBytes also?
-    beanstalk[field.label].currentType_jslib = field.type;
+        },
+    }
+    return handler;
 }
 
-// Whole slot
-const seasonTimestamp = beanstalk.s.season.timestamp;
-// Partial slot (no offset)
-const seasonNumber = beanstalk.s.season.current;
-// Partial slot (with offset)
-const withdrawSeasons = beanstalk.s.season.withdrawSeasons;
-console.log('season: ', seasonTimestamp, seasonNumber, withdrawSeasons);
+/**
+ * Gets the value of the requested variable, accounting for packing
+ * @param {string} data - The bytes data in an arbitrary storage slot
+ * @param {number} start - The position of the data in its storage slot
+ * @param {number} size - The size of the variable in bytes
+ * @return {string} Hexadecimal representation of the result, using {size} bytes
+ */
+function getStorageBytes(data, start, size) {
+    const lower = 2 + (32 - start - size)*2;
+    const upper = lower + size*2;
+    return '0x' + data.substring(lower, upper);
+}
 
-// Mapping (recent sow as example)
-const account = '0x4Fea3B55ac16b67c279A042d10C0B7e81dE9c869';
-const index = '949411235551363';
-const pods = beanstalk.s.a[account].field.plots[index];
-console.log('pods: ', pods);
+async function storageTest() {
+    
+    const handler = await makeHandler(BEANSTALK);
+    // Transform all storage variables from an array into an object, such that labels are extracted as keys,
+    // and the underlying object is using a custom proxy.
+    const beanstalk = {};
+    for (const field of storage) {
+        beanstalk[field.label] = new Proxy(field, handler);
+        beanstalk[field.label].storageSlot_jslib = BigNumber.from(0);
+        beanstalk[field.label].currentType_jslib = field.type;
+    }
 
+    // Whole slot
+    const seasonTimestamp = await beanstalk.s.season.timestamp;
+    // Partial slot (no offset)
+    const seasonNumber = await beanstalk.s.season.current;
+    // Partial slot (with offset)
+    const sunriseBlock = await beanstalk.s.season.sunriseBlock;
+    console.log('season: ', seasonTimestamp, seasonNumber, sunriseBlock);
 
-// For structs: will have "members" field.
-// For mappings: will have "value" field for the type that the mapping points to.
+    // Mapping (recent sow as example)
+    const account = '0x4Fea3B55ac16b67c279A042d10C0B7e81dE9c869';
+    const index = '949411235551363';
+    const pods = await beanstalk.s.a[account].field.plots[index];
+    console.log('pods: ', pods);
+
+}
+storageTest();
