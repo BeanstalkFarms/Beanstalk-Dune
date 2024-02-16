@@ -2,7 +2,7 @@ const ethers = require('ethers');
 const abiCoder = new ethers.AbiCoder();
 const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../provider.js');
-const { getStorageBytes, decodeArray, SLOT_SIZE } = require('../utils/solidity-data.js');
+const { SLOT_SIZE, getStorageBytes, decodeType } = require('../utils/solidity-data.js');
 
 // TODO: There may be a discrepancy with how I retrieve arrays, this will be trivial to fix as it becomes clear.
 //  i.e. I know storage slots are lower order aligned, particularly for arrays of small elements,
@@ -82,8 +82,9 @@ async function makeProxyHandler(contractAddress, types, blockNumber = 'latest') 
                                     // console.debug('slot:', valueAtSlot);
                                     const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(SLOT_SIZE, numberOfBytes));
                                     if (!hasMoreSlots) {
-                                        resolve(decodeArray(returnType.label, data + result));
+                                        resolve(decodeType(data + result, returnType, types));
                                     } else {
+                                        // Recursion here
                                         resolve({then: resultThenable(data + result, arrayIndex + 1, numberOfBytes - SLOT_SIZE*(arrayIndex+1) > SLOT_SIZE)});
                                     }
                                 });
@@ -96,19 +97,20 @@ async function makeProxyHandler(contractAddress, types, blockNumber = 'latest') 
                 } else if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
                     // There are no further members, therefore this must be the end.
 
-                    return new Promise((resolve, reject) => {
+                    const returnPromise = new Promise((resolve, reject) => {
                         // console.debug('Retrieving storage slot:', returnProxy.storageSlot_jslib.toHexString());
                         provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib, blockNumber)
                                 .then(valueAtSlot => {
                                     // console.debug('slot:', valueAtSlot);
                                     const result = getStorageBytes(valueAtSlot, slotOffset, returnType.numberOfBytes);
-                                    if (returnType.label === 'bool') {
-                                        resolve(result === '01');
-                                    } else {
-                                        resolve(result);
-                                    }
+                                    resolve(decodeType(result, returnType, types));
                                 });
                     });
+                    // Adds a toNumber function onto the return promise. This allows callers to choose whether
+                    // to receive BigNumber or number in a single line without having to wrap the await.
+                    // i.e. await beanstalk.s.deprecated[12].toNumber() vs (await beanstalk.s.deprecated[12]).toNumber()
+                    returnPromise.toNumber = () => {return new Promise((resolve, reject) => returnPromise.then(bn => resolve(bn.toNumber())))};
+                    return returnPromise;
                 }
                 return returnProxy;
             }

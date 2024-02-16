@@ -17,57 +17,75 @@ function getStorageBytes(data, start, size) {
 }
 
 /**
- * Decode the array label into its 4 relevant components
- * @param {string} arrayLabel - of the form uint256[4], int8[2], bytes4[8], etc.
+ * Decode the type label into its 4 relevant components
+ * @param {string} type - of the form int8, uint256, uint256[4], bytes4[8] int8[2], etc.
+ * @param {object} typesMapping - the types mapping from storageLayout file
  */
-function decodeArrayLabel(arrayLabel) {
-    const regex = /(u)?(int|bytes)(\d+)\[(\d+)\]/;
-    const match = regex.exec(arrayLabel);
+function decodeTypeLabel(type, typesMapping) {
+    const regex = /(u)?(int|bytes)(\d+)(?:\[(\d+)\])?/;
+    const match = regex.exec(type.label);
 
     if (!match) {
-        throw new Error('Unsupported data type found:', arrayLabel);
+        throw new Error('Unsupported data type found:' + type.label);
     }
-    // TODO: need to consider structs and do the appropriate lookup to get dataSizeBits.
+
+    // For arrays, get dataSizeBits from mapping instead, as this works with types other than int types (i.e. struct etc)
+    const dataSizeBits = type.base === undefined ? parseInt(match[3]) : parseInt(typesMapping[type.base].numberOfBytes) * 8;
     return {
         isUnsigned: match[1] === 'u',
         dataType: match[2], // for now expecting "int" or "bytes"
-        dataSizeBits: parseInt(match[3]),
+        dataSizeBits: dataSizeBits,
         arraySize: parseInt(match[4])
     };
 }
 
 /**
  * AbiCoder cannot handle arrays of integers smaller than uint256, custom solution is required
- * @param {string} arrayType - of the form uint256[4], int8[2], bytes4[8], etc.
+ * @param {string} arrayType - entry in the types mapping for this array
  * @param {string} data - all data corresponding to the array, potentially from multiple slots
+ * @param {object} typesMapping - the types mapping from storageLayout file
  * @return {array<BigNumber>} ordered array of BigNumber corresponding to the contents
  */
-function decodeArray(arrayType, data) {
+function decodeArray(arrayType, data, typesMapping) {
     // console.debug('Decoding array:', arrayType, data);
 
-    const { isUnsigned, dataType, dataSizeBits, arraySize } = decodeArrayLabel(arrayType);
+    const { dataSizeBits, arraySize } = decodeTypeLabel(arrayType, typesMapping);
     const dataSizeBytes = dataSizeBits / 4;
 
     const retval = [];
     for (let i = 0; i < arraySize; ++i) {
         const element = data.substring(data.length - (i+1)*dataSizeBytes, data.length - i*dataSizeBytes);
-        if (dataType === 'int') {
-            if (isUnsigned) {
-                retval.push(BigNumber.from("0x" + element));
-            } else {
-                // TODO: put this logic in a more general place as its not solely relevant to arrays
-                retval.push(BigNumber.from("0x" + element).fromTwos(dataSizeBits));
-            }
-        } else {
-            retval.push(element);
-        }
+        retval.push(decodeType(element, typesMapping[arrayType.base], typesMapping));
     }
     return retval;
+}
+
+function dataToBN(data, isUnsigned, dataSizeBits) {
+    if (isUnsigned) {
+        return BigNumber.from("0x" + data);
+    } else {
+        return BigNumber.from("0x" + data).fromTwos(dataSizeBits);
+    }
+}
+
+function decodeType(data, type, typesMapping) {
+
+    if (type.label.includes('[')) {
+        // Assumption is that dynamic vs static size arrays would be decoded in the same fashion
+        return decodeArray(type, data, typesMapping);
+    } else if (type.label === 'bool') {
+        return data === '01';
+    } else if (type.label === 'address' || type.label.startsWith('contract')) {
+        return '0x' + data;
+    } else if (type.label.includes('int') || type.label.startsWith('enum')) {
+        const { isUnsigned, dataSizeBits } = decodeTypeLabel(type, typesMapping);
+        return dataToBN(data, isUnsigned, dataSizeBits);
+    }
+    return data;
 }
 
 module.exports = {
     SLOT_SIZE,
     getStorageBytes,
-    decodeArrayLabel,
-    decodeArray
+    decodeType
 };

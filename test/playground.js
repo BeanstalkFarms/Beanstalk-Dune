@@ -112,8 +112,10 @@ async function storageTest() {
     console.log('who knows whats in here (deprecated)', deprecated);
     const deprecated12 = await beanstalk.s.deprecated[12];
     console.log('deprecated[12]:', deprecated12);
+    const deprecated12AsNumber = await beanstalk.s.deprecated[12].toNumber();
+    console.log('deprecated[12]:', deprecated12AsNumber);
 
-    assertNonzero({seasonTimestamp, seasonNumber, sunriseBlock, pods, internalBeans, case1, deprecated12, allCases1: allCases[1], deprecated12: deprecated[12]});
+    assertNonzero({seasonTimestamp, seasonNumber, sunriseBlock, pods, internalBeans, case1, deprecated12, allCases1: allCases[1], deprecated12: deprecated[12], deprecated12AsNumber});
     assertTrue({claimedURBean});
 
     // Dyamic size array
