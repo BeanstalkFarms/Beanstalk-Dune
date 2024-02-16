@@ -4,10 +4,6 @@ const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../provider.js');
 const { SLOT_SIZE, getStorageBytes, decodeType } = require('../utils/solidity-data.js');
 
-// TODO: There may be a discrepancy with how I retrieve arrays, this will be trivial to fix as it becomes clear.
-//  i.e. I know storage slots are lower order aligned, particularly for arrays of small elements,
-//  but what happens when one such array overflows into multiple storage slots?
-
 function transformMembersList(members) {
     const retval = {};
     for (const field of members) {
@@ -82,17 +78,17 @@ async function makeProxyHandler(contractAddress, types, blockNumber = 'latest') 
                                     // console.debug('slot:', valueAtSlot);
                                     const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(SLOT_SIZE, numberOfBytes));
                                     if (!hasMoreSlots) {
-                                        resolve(decodeType(data + result, returnType, types));
+                                        resolve(decodeType([...data, result], returnType, types));
                                     } else {
                                         // Recursion here
-                                        resolve({then: resultThenable(data + result, arrayIndex + 1, numberOfBytes - SLOT_SIZE*(arrayIndex+1) > SLOT_SIZE)});
+                                        resolve({then: resultThenable([...data, result], arrayIndex + 1, numberOfBytes - SLOT_SIZE*(arrayIndex+1) > SLOT_SIZE)});
                                     }
                                 });
                     };
                     const multipleSlots = numberOfBytes > SLOT_SIZE;
                     // Since at this point we are operating on an array, we can assume that "then" won't
                     // collide with a variable name (i.e. can't access property .then on an array in solidity)
-                    returnProxy.then = resultThenable('0x', 0, multipleSlots);
+                    returnProxy.then = resultThenable([], 0, multipleSlots);
 
                 } else if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
                     // There are no further members, therefore this must be the end.

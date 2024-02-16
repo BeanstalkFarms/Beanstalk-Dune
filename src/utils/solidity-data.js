@@ -11,7 +11,7 @@ const SLOT_SIZE = 32;
  * @return {string} Hexadecimal representation of the result, using {size} bytes
  */
 function getStorageBytes(data, start, size) {
-    const lower = 2 + (SLOT_SIZE - start - size)*2;
+    const lower = (data.startsWith('0x') ? 2 : 0) + (SLOT_SIZE - start - size)*2;
     const upper = lower + size*2;
     return data.substring(lower, upper);
 }
@@ -42,20 +42,22 @@ function decodeTypeLabel(type, typesMapping) {
 /**
  * AbiCoder cannot handle arrays of integers smaller than uint256, custom solution is required
  * @param {string} arrayType - entry in the types mapping for this array
- * @param {string} data - all data corresponding to the array, potentially from multiple slots
+ * @param {string} dataSlots - list of data contained in potentially multiple contiguous storage slots
  * @param {object} typesMapping - the types mapping from storageLayout file
  * @return {array<BigNumber>} ordered array of BigNumber corresponding to the contents
  */
-function decodeArray(arrayType, data, typesMapping) {
+function decodeArray(arrayType, dataSlots, typesMapping) {
     // console.debug('Decoding array:', arrayType, data);
 
     const { dataSizeBits, arraySize } = decodeTypeLabel(arrayType, typesMapping);
-    const dataSizeBytes = dataSizeBits / 4;
+    const dataSizeBytes = dataSizeBits / 8;
 
     const retval = [];
-    for (let i = 0; i < arraySize; ++i) {
-        const element = data.substring(data.length - (i+1)*dataSizeBytes, data.length - i*dataSizeBytes);
-        retval.push(decodeType(element, typesMapping[arrayType.base], typesMapping));
+    for (const slot of dataSlots) {
+        for (let offset = 0; offset < SLOT_SIZE; offset += dataSizeBytes) {
+            const entry = getStorageBytes(slot, offset, dataSizeBytes);
+            retval.push(decodeType(entry, typesMapping[arrayType.base], typesMapping));
+        }
     }
     return retval;
 }
