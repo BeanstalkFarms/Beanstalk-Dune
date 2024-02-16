@@ -5,6 +5,9 @@ const { providerThenable } = require('../src/provider.js');
 const { BEANSTALK, BEAN, UNRIPE_BEAN, UNRIPE_LP } = require('../src/addresses.js');
 const { storage, types } = require('../src/contracts/beanstalk/storage.json');
 
+// The size of one storage slot, in bytes
+const SLOT_SIZE = 32;
+
 function transformMembersList(members) {
     const retval = {};
     for (const field of members) {
@@ -53,24 +56,36 @@ async function makeHandler(contractAddress, blockNumber = 'latest') {
                 const returnType = types[returnProxy.currentType_jslib];
                 if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
                     // There are no further members, therefore this must be the end.
-                    // Return is a thenable object. This function itself cannot be async since it
-                    // chains many calls together and needs to avoid its own .then in the proxy trap.
-                    console.log('Retrieving storage slot:', returnProxy.storageSlot_jslib.toHexString());
                     // For arrays having multiple slots: there can be a performance improvement using
-                    // Promise.all, but for now using a recursive solution, as this is simpler
+                    // Promise.all, but for now using a recursive solution, as this will be simpler
                     // in handling dynamic arrays.
-                    return provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib, blockNumber)
-                            .then(valueAtSlot => {
-                                const result = getStorageBytes(valueAtSlot, slotOffset, returnType.numberOfBytes);
-                                if (returnType.label === 'bool') {
-                                    return result === '0x01';
-                                } else if (returnType.label.includes('[]')) {
-                                    // Dynamic array - no size provided
-                                } else if (returnType.label.includes('[')) {
-                                    // Fixed array - size is provided
-                                    return decodeArray(returnType.label, result);
-                                }
-                            });
+
+                    const numberOfBytes = returnType.numberOfBytes;
+
+                    const resultPromise = (data, arrayIndex, hasMoreSlots) => new Promise((resolve, reject) => {
+                        console.log('Retrieving storage slot:', returnProxy.storageSlot_jslib.add(arrayIndex).toHexString());
+                        provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib.add(arrayIndex), blockNumber)
+                                .then(valueAtSlot => {
+                                    console.log(valueAtSlot);
+                                    const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(SLOT_SIZE, numberOfBytes));
+                                    if (returnType.label === 'bool') {
+                                        resolve(result === '01');
+                                    } else if (returnType.label.includes('[]')) {
+                                        // Dynamic array - unknown size
+                                    } else if (returnType.label.includes('[')) {
+                                        // Fixed array - size is provided
+                                        if (!hasMoreSlots) {
+                                            resolve(decodeArray(returnType.label, data + result));
+                                        } else {
+                                            resolve(resultPromise(data + result, arrayIndex + 1, numberOfBytes - SLOT_SIZE*(arrayIndex+1) > SLOT_SIZE));
+                                        }
+                                    } else {
+                                        resolve(result);
+                                    }
+                                });
+                    });
+                    const multipleSlots = numberOfBytes > SLOT_SIZE;
+                    return resultPromise('0x', 0, multipleSlots);
                 }
                 return returnProxy;
             }
@@ -87,13 +102,19 @@ async function makeHandler(contractAddress, blockNumber = 'latest') {
  * @return {string} Hexadecimal representation of the result, using {size} bytes
  */
 function getStorageBytes(data, start, size) {
-    const lower = 2 + (32 - start - size)*2;
+    const lower = 2 + (SLOT_SIZE - start - size)*2;
     const upper = lower + size*2;
-    return '0x' + data.substring(lower, upper);
+    return data.substring(lower, upper);
 }
 
-// AbiCoder cannot handle arrays of integers smaller than uint256, custom solution is required
+/**
+ * AbiCoder cannot handle arrays of integers smaller than uint256, custom solution is required
+ * @param {string} arrayType - of the form uint256[4], int8[2], bytes4[8], etc.
+ * @param {string} data - all data corresponding to the array, potentially from multiple slots
+ * @return {array<BigNumber>} ordered array of BigNumber corresponding to the contents
+ */
 function decodeArray(arrayType, data) {
+    // console.debug('Decoding array:', arrayType, data);
 
     const regex = /(u)?(int|bytes)(\d+)\[(\d+)\]/;
     const match = regex.exec(arrayType);
@@ -114,10 +135,9 @@ function decodeArray(arrayType, data) {
         const element = data.substring(data.length - (i+1)*dataSizeBytes, data.length - i*dataSizeBytes);
         if (dataType === 'int') {
             if (isUnsigned) {
-                retval.push(parseInt(element, 16));
+                retval.push(BigNumber.from("0x" + element));
             } else {
-                ;
-                retval.push(BigNumber.from("0x" +element).fromTwos(dataSizeBits).toString());
+                retval.push(BigNumber.from("0x" + element).fromTwos(dataSizeBits));
             }
         } else {
             retval.push(element);
@@ -139,28 +159,28 @@ async function storageTest() {
     }
 
     // Whole slot
-    // const seasonTimestamp = await beanstalk.s.season.timestamp;
-    // // Partial slot (no offset)
-    // const seasonNumber = await beanstalk.s.season.current;
-    // // Partial slot (with offset)
-    // const sunriseBlock = await beanstalk.s.season.sunriseBlock;
-    // console.log('season: ', seasonTimestamp, seasonNumber, sunriseBlock);
+    const seasonTimestamp = await beanstalk.s.season.timestamp;
+    // Partial slot (no offset)
+    const seasonNumber = await beanstalk.s.season.current;
+    // Partial slot (with offset)
+    const sunriseBlock = await beanstalk.s.season.sunriseBlock;
+    console.log('season: ', seasonTimestamp, seasonNumber, sunriseBlock);
 
-    // // Mapping (recent sow as example)
-    // const sower = '0x4Fea3B55ac16b67c279A042d10C0B7e81dE9c869';
-    // const index = '949411235551363';
-    // const pods = await beanstalk.s.a[sower].field.plots[index];
-    // console.log('pods: ', pods);
+    // Mapping (recent sow as example)
+    const sower = '0x4Fea3B55ac16b67c279A042d10C0B7e81dE9c869';
+    const index = '949411235551363';
+    const pods = await beanstalk.s.a[sower].field.plots[index];
+    console.log('pods: ', pods);
 
-    // // Double mappings
-    // const unripeHolder = '0xbcc44956d70536bed17c146a4d9e66261bb701dd';
-    // const claimedURBean = await beanstalk.s.unripeClaimed[UNRIPE_BEAN][unripeHolder];
-    // const claimedURLP = await beanstalk.s.unripeClaimed[UNRIPE_LP][unripeHolder];
-    // console.log('claimedUnripe?', claimedURBean, claimedURLP);
+    // Double mappings
+    const unripeHolder = '0xbcc44956d70536bed17c146a4d9e66261bb701dd';
+    const claimedURBean = await beanstalk.s.unripeClaimed[UNRIPE_BEAN][unripeHolder];
+    const claimedURLP = await beanstalk.s.unripeClaimed[UNRIPE_LP][unripeHolder];
+    console.log('claimedUnripe?', claimedURBean, claimedURLP);
 
-    // const internalBalanceHolder = '0xDE3E4d173f754704a763D39e1Dcf0a90c37ec7F0';
-    // const internalBeans = await beanstalk.s.internalTokenBalance[internalBalanceHolder][BEAN];
-    // console.log('internal balance:', internalBeans);
+    const internalBalanceHolder = '0xDE3E4d173f754704a763D39e1Dcf0a90c37ec7F0';
+    const internalBeans = await beanstalk.s.internalTokenBalance[internalBalanceHolder][BEAN];
+    console.log('internal balance:', internalBeans);
 
     // Array (one slot)
     const tempCases = await beanstalk.s.cases;
@@ -172,7 +192,6 @@ async function storageTest() {
 
     // Dyamic size array
 
-    // TODO: arrays - could require multiple slots, and parsing into the array
     // TODO: dynamic arrays
 
 }
