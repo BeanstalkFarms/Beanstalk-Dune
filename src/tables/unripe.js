@@ -1,7 +1,7 @@
 const { alchemy } = require('../provider.js');
 const { initResultsTable, addContractResults, initResultFile, appendResults } = require('./table-builder.js');
 const { getLastProcessed } = require('./cursor.js');
-const { asyncBeanstalkContractGetter, createAsyncERC20ContractGetter } = require('../contracts/contracts.js');
+const { asyncBeanstalkContractGetter, createAsyncERC20ContractGetter } = require('../datasources/contract-function.js');
 const { UNRIPE_BEAN, UNRIPE_LP } = require('../addresses.js');
 
 const REPLANT_FERTILIZATION = 15279874;

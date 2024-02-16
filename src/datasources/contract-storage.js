@@ -1,17 +1,12 @@
 const ethers = require('ethers');
 const abiCoder = new ethers.AbiCoder();
 const { BigNumber } = require('alchemy-sdk');
-const { providerThenable } = require('../src/provider.js');
-const { BEANSTALK, BEAN, UNRIPE_BEAN, UNRIPE_LP } = require('../src/addresses.js');
-const { storage, types } = require('../src/contracts/beanstalk/storage.json');
-const { assertNonzero, assertTrue } = require('./assert-simple.js');
+const { providerThenable } = require('../provider.js');
+const { getStorageBytes, decodeArray, SLOT_SIZE } = require('../utils/solidity-data.js');
 
 // TODO: There may be a discrepancy with how I retrieve arrays, this will be trivial to fix as it becomes clear.
 //  i.e. I know storage slots are lower order aligned, particularly for arrays of small elements,
 //  but what happens when one such array overflows into multiple storage slots?
-
-// The size of one storage slot, in bytes
-const SLOT_SIZE = 32;
 
 function transformMembersList(members) {
     const retval = {};
@@ -31,7 +26,7 @@ function copy(obj) {
  * For example, we can write something like this to traverse multiple structs and mappings:
  * > await beanstalk.s.a[account].field.plots[index]
  */
-async function makeHandler(contractAddress, blockNumber = 'latest') {
+async function makeProxyHandler(contractAddress, types, blockNumber = 'latest') {
     const provider = await providerThenable;
     const handler = {
         get: function(target, property) {
@@ -122,123 +117,21 @@ async function makeHandler(contractAddress, blockNumber = 'latest') {
     return handler;
 }
 
-/**
- * Gets the value of the requested variable, accounting for packing
- * @param {string} data - The bytes data in an arbitrary storage slot
- * @param {number} start - The position of the data in its storage slot
- * @param {number} size - The size of the variable in bytes
- * @return {string} Hexadecimal representation of the result, using {size} bytes
- */
-function getStorageBytes(data, start, size) {
-    const lower = 2 + (SLOT_SIZE - start - size)*2;
-    const upper = lower + size*2;
-    return data.substring(lower, upper);
-}
+class ContractStorage {
+    constructor(contractAddress, storageLayout, blockNumber = 'latest') {
+        return new Promise(async (resolve, reject) => {
 
-/**
- * Decode the array label into its 4 relevant components
- * @param {string} arrayLabel - of the form uint256[4], int8[2], bytes4[8], etc.
- */
-function decodeArrayLabel(arrayLabel) {
-    const regex = /(u)?(int|bytes)(\d+)\[(\d+)\]/;
-    const match = regex.exec(arrayLabel);
-
-    if (!match) {
-        throw new Error('Unsupported data type found:', arrayLabel);
-    }
-    // TODO: need to consider structs and do the appropriate lookup to get dataSizeBits.
-    return {
-        isUnsigned: match[1] === 'u',
-        dataType: match[2], // for now expecting "int" or "bytes"
-        dataSizeBits: parseInt(match[3]),
-        arraySize: parseInt(match[4])
-    };
-}
-
-/**
- * AbiCoder cannot handle arrays of integers smaller than uint256, custom solution is required
- * @param {string} arrayType - of the form uint256[4], int8[2], bytes4[8], etc.
- * @param {string} data - all data corresponding to the array, potentially from multiple slots
- * @return {array<BigNumber>} ordered array of BigNumber corresponding to the contents
- */
-function decodeArray(arrayType, data) {
-    // console.debug('Decoding array:', arrayType, data);
-
-    const { isUnsigned, dataType, dataSizeBits, arraySize } = decodeArrayLabel(arrayType);
-    const dataSizeBytes = dataSizeBits / 4;
-
-    const retval = [];
-    for (let i = 0; i < arraySize; ++i) {
-        const element = data.substring(data.length - (i+1)*dataSizeBytes, data.length - i*dataSizeBytes);
-        if (dataType === 'int') {
-            if (isUnsigned) {
-                retval.push(BigNumber.from("0x" + element));
-            } else {
-                // TODO: put this logic in a more general place as its not solely relevant to arrays
-                retval.push(BigNumber.from("0x" + element).fromTwos(dataSizeBits));
+            // Transform all storage variables into this object, such that labels are extracted as keys,
+            // and the underlying object is using a custom proxy.
+            const proxyHandler = await makeProxyHandler(contractAddress, storageLayout.types, blockNumber)
+            for (const field of storageLayout.storage) {
+                this[field.label] = new Proxy(field, proxyHandler);
+                this[field.label].storageSlot_jslib = BigNumber.from(0);
+                this[field.label].currentType_jslib = field.type;
             }
-        } else {
-            retval.push(element);
-        }
+            resolve(this);
+        });
     }
-    return retval;
 }
 
-async function storageTest() {
-    
-    const handler = await makeHandler(BEANSTALK, 19235371);
-    // Transform all storage variables from an array into an object, such that labels are extracted as keys,
-    // and the underlying object is using a custom proxy.
-    const beanstalk = {};
-    for (const field of storage) {
-        beanstalk[field.label] = new Proxy(field, handler);
-        beanstalk[field.label].storageSlot_jslib = BigNumber.from(0);
-        beanstalk[field.label].currentType_jslib = field.type;
-    }
-
-    // Whole slot
-    const seasonTimestamp = await beanstalk.s.season.timestamp;
-    // Partial slot (no offset)
-    const seasonNumber = await beanstalk.s.season.current;
-    // Partial slot (with offset)
-    const sunriseBlock = await beanstalk.s.season.sunriseBlock;
-    // console.log('season: ', seasonTimestamp, seasonNumber, sunriseBlock);
-
-    // Mapping (recent sow as example)
-    const sower = '0x4Fea3B55ac16b67c279A042d10C0B7e81dE9c869';
-    const index = '949411235551363';
-    const pods = await beanstalk.s.a[sower].field.plots[index];
-    // console.log('pods: ', pods);
-
-    // Double mappings
-    const unripeHolder = '0xbcc44956d70536bed17c146a4d9e66261bb701dd';
-    const claimedURBean = await beanstalk.s.unripeClaimed[UNRIPE_BEAN][unripeHolder];
-    const claimedURLP = await beanstalk.s.unripeClaimed[UNRIPE_LP][unripeHolder];
-    // console.log('claimedUnripe?', claimedURBean, claimedURLP);
-
-    const internalBalanceHolder = '0xDE3E4d173f754704a763D39e1Dcf0a90c37ec7F0';
-    const internalBeans = await beanstalk.s.internalTokenBalance[internalBalanceHolder][BEAN];
-    // console.log('internal balance:', internalBeans);
-
-    const case1 = await beanstalk.s.cases[1]; // expect 0x01
-    // console.log('temp case 1:', case1);
-
-    // Array (one slot)
-    const allCases = await beanstalk.s.cases;
-    // console.log('all temp cases:', allCases);
-
-    // Array (multiple slots)
-    const deprecated = await beanstalk.s.deprecated;
-    // console.log('who knows whats in here (deprecated)', deprecated);
-    const deprecated12 = await beanstalk.s.deprecated[12];
-    // console.log('deprecated[12]:', deprecated12);
-
-    assertNonzero({seasonTimestamp, seasonNumber, sunriseBlock, pods, internalBeans, case1, deprecated12, allCases1: allCases[1], deprecated12: deprecated[12]});
-    assertTrue({claimedURBean});
-
-    // Dyamic size array
-
-    // TODO: dynamic arrays
-
-}
-storageTest();
+module.exports = ContractStorage;

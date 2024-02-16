@@ -1,7 +1,7 @@
 const { alchemy } = require('../provider.js');
 const { initResultsTable, addContractResults, initResultFile, appendResults } = require('./table-builder.js');
 const { getLastProcessed } = require('./cursor.js');
-const { asyncBeanstalkContractGetter } = require('../contracts/contracts.js');
+const { asyncBeanstalkContractGetter } = require('../datasources/contract-function.js');
 
 // Fertilizer is only relevant since the barn raise
 const FERT_DEPLOYMENT = 14910573;

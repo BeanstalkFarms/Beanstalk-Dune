@@ -1,8 +1,12 @@
 const ethers = require('ethers');
 const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../src/provider.js');
-const { BEANSTALK, BEAN, PEPE } = require('../src/addresses.js');
-const { asyncBeanstalkContractGetter, getBalance } = require('../src/contracts/contracts.js');
+const { BEANSTALK, BEAN, PEPE, UNRIPE_BEAN, UNRIPE_LP } = require('../src/addresses.js');
+const { asyncBeanstalkContractGetter, getBalance } = require('../src/datasources/contract-function.js');
+const { getStorageBytes } = require('../src/utils/solidity-data.js');
+const ContractStorage = require('../src/datasources/contract-storage.js');
+const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
+const { assertNonzero, assertTrue } = require('./assert-simple.js');
 
 async function logTestInfo() {
     // recent mints started: 18963933
@@ -15,7 +19,7 @@ async function logTestInfo() {
 // logTestInfo();
 // uploadCsv('sample');
 
-// Sample for getting data from beanstalk contract directly
+// Sample for getting data from beanstalk contract directly (using manual calculation)
 async function contractData() {
     const provider = await providerThenable;
     const beanstalkStorage = (slot, blockNumber = 'latest') => {
@@ -66,19 +70,55 @@ async function contractData() {
     }
 }
 
-/**
- * Gets the value of the requested variable, accounting for packing
- * @param {string} data - The bytes data in an arbitrary storage slot
- * @param {number} start - The position of the data in its storage slot
- * @param {number} size - The size of the variable in bytes
- * @return {string} size bytes, or size*2 characters long
- */
-function getStorageBytes(data, start, size) {
-    const lower = 2 + (32 - start - size)*2;
-    const upper = lower + size*2;
-    return data.substring(lower, upper);
-}
-
 // contractData();
 
-require('./contract-storage.js');
+async function storageTest() {
+    
+    const beanstalk = await new ContractStorage(BEANSTALK, storageLayout, 19235371);
+
+    // Whole slot
+    const seasonTimestamp = await beanstalk.s.season.timestamp;
+    // Partial slot (no offset)
+    const seasonNumber = await beanstalk.s.season.current;
+    // Partial slot (with offset)
+    const sunriseBlock = await beanstalk.s.season.sunriseBlock;
+    console.log('season: ', seasonTimestamp, seasonNumber, sunriseBlock);
+
+    // Mapping (recent sow as example)
+    const sower = '0x4Fea3B55ac16b67c279A042d10C0B7e81dE9c869';
+    const index = '949411235551363';
+    const pods = await beanstalk.s.a[sower].field.plots[index];
+    console.log('pods: ', pods);
+
+    // Double mappings
+    const unripeHolder = '0xbcc44956d70536bed17c146a4d9e66261bb701dd';
+    const claimedURBean = await beanstalk.s.unripeClaimed[UNRIPE_BEAN][unripeHolder];
+    const claimedURLP = await beanstalk.s.unripeClaimed[UNRIPE_LP][unripeHolder];
+    console.log('claimedUnripe?', claimedURBean, claimedURLP);
+
+    const internalBalanceHolder = '0xDE3E4d173f754704a763D39e1Dcf0a90c37ec7F0';
+    const internalBeans = await beanstalk.s.internalTokenBalance[internalBalanceHolder][BEAN];
+    console.log('internal balance:', internalBeans);
+
+    const case1 = await beanstalk.s.cases[1]; // expect 0x01
+    console.log('temp case 1:', case1);
+
+    // Array (one slot)
+    const allCases = await beanstalk.s.cases;
+    console.log('all temp cases:', allCases);
+
+    // Array (multiple slots)
+    const deprecated = await beanstalk.s.deprecated;
+    console.log('who knows whats in here (deprecated)', deprecated);
+    const deprecated12 = await beanstalk.s.deprecated[12];
+    console.log('deprecated[12]:', deprecated12);
+
+    assertNonzero({seasonTimestamp, seasonNumber, sunriseBlock, pods, internalBeans, case1, deprecated12, allCases1: allCases[1], deprecated12: deprecated[12]});
+    assertTrue({claimedURBean});
+
+    // Dyamic size array
+
+    // TODO: dynamic arrays
+
+}
+storageTest();
