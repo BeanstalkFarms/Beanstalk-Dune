@@ -1,7 +1,6 @@
 const ethers = require('ethers');
 const abiCoder = new ethers.AbiCoder();
 const { BigNumber } = require('alchemy-sdk');
-const { providerThenable } = require('../../provider.js');
 const { SLOT_SIZE, getStorageBytes, decodeType, slotsForArrayIndex } = require('./utils/solidity-data.js');
 
 function transformMembersList(members) {
@@ -22,8 +21,7 @@ function copy(obj) {
  * For example, we can write something like this to traverse multiple structs and mappings:
  * > await beanstalk.s.a[account].field.plots[index]
  */
-async function makeProxyHandler(contractAddress, types, blockNumber = 'latest') {
-    const provider = await providerThenable;
+function makeProxyHandler(provider, contractAddress, types, blockNumber = 'latest') {
     const handler = {
         get: function(target, property) {
             if (['storageSlot_jslib', 'currentType_jslib', 'then'].includes(property)) {
@@ -115,19 +113,16 @@ async function makeProxyHandler(contractAddress, types, blockNumber = 'latest') 
 }
 
 class ContractStorage {
-    constructor(contractAddress, storageLayout, blockNumber = 'latest') {
-        return new Promise(async (resolve, reject) => {
 
-            // Transform all storage variables into this object, such that labels are extracted as keys,
-            // and the underlying object is using a custom proxy.
-            const proxyHandler = await makeProxyHandler(contractAddress, storageLayout.types, blockNumber)
-            for (const field of storageLayout.storage) {
-                this[field.label] = new Proxy(field, proxyHandler);
-                this[field.label].storageSlot_jslib = BigNumber.from(0);
-                this[field.label].currentType_jslib = field.type;
-            }
-            resolve(this);
-        });
+    constructor(provider, contractAddress, storageLayout, blockNumber = 'latest') {
+
+        const proxyHandler = makeProxyHandler(provider, contractAddress, storageLayout.types, blockNumber)
+        // Initialize all top level storage fields
+        for (const field of storageLayout.storage) {
+            this[field.label] = new Proxy(field, proxyHandler);
+            this[field.label].storageSlot_jslib = BigNumber.from(0);
+            this[field.label].currentType_jslib = field.type;
+        }
     }
 }
 

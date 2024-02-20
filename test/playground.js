@@ -74,7 +74,7 @@ async function contractData() {
 
 async function storageTest() {
     
-    const beanstalk = await new ContractStorage(BEANSTALK, storageLayout, 19235371);
+    const beanstalk = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, 19235371);
 
     // Whole slot
     const seasonTimestamp = await beanstalk.s.season.timestamp;
