@@ -86,8 +86,21 @@ function decodeType(data, type, typesMapping) {
     return data;
 }
 
+/**
+ * For the requested array index, determine where in storage is the corresponding element.
+ * This is particularly relevant for base elements such as structs or addresses which cannot evenly fill slots.
+ * @param {number} arrayIndex - the index being accessed in the array
+ * @param {number} baseElementSize - size in bytes of the array's base element
+ * @return {object} returns the slot and slotOffset to be applied
+ */
+function slotsForArrayIndex(arrayIndex, baseElementSize) {
+    const elementsPerSlot = Math.floor(SLOT_SIZE / baseElementSize);
+    return { slot: Math.floor(arrayIndex / elementsPerSlot), slotOffset: (arrayIndex % elementsPerSlot) * baseElementSize };
+}
+
 module.exports = {
     SLOT_SIZE,
     getStorageBytes,
-    decodeType
+    decodeType,
+    slotsForArrayIndex
 };

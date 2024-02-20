@@ -3,8 +3,8 @@ const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../src/provider.js');
 const { BEANSTALK, BEAN, PEPE, UNRIPE_BEAN, UNRIPE_LP } = require('../src/addresses.js');
 const { asyncBeanstalkContractGetter, getBalance } = require('../src/datasources/contract-function.js');
-const { getStorageBytes } = require('../src/utils/solidity-data.js');
-const ContractStorage = require('../src/datasources/contract-storage.js');
+const { getStorageBytes } = require('../src/datasources/storage/utils/solidity-data.js');
+const ContractStorage = require('../src/datasources/storage/contract-storage.js');
 const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
 const { assertNonzero, assertTrue } = require('./assert-simple.js');
 

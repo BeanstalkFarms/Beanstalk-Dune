@@ -1,8 +1,8 @@
 const ethers = require('ethers');
 const abiCoder = new ethers.AbiCoder();
 const { BigNumber } = require('alchemy-sdk');
-const { providerThenable } = require('../provider.js');
-const { SLOT_SIZE, getStorageBytes, decodeType } = require('../utils/solidity-data.js');
+const { providerThenable } = require('../../provider.js');
+const { SLOT_SIZE, getStorageBytes, decodeType, slotsForArrayIndex } = require('./utils/solidity-data.js');
 
 function transformMembersList(members) {
     const retval = {};
@@ -56,12 +56,11 @@ async function makeProxyHandler(contractAddress, types, blockNumber = 'latest') 
                 } else if (currentType.label.includes('[')) {
                     // Fixed array
                     const arrayBase = types[currentType.base];
-                    const elementSize = arrayBase.numberOfBytes;
-                    const bytePosition = elementSize * parseInt(property);
+                    const arraySlots = slotsForArrayIndex(parseInt(property), parseInt(arrayBase.numberOfBytes));
                     returnProxy = new Proxy(copy(arrayBase), handler);
-                    returnProxy.storageSlot_jslib = target.storageSlot_jslib.add(Math.floor(bytePosition / SLOT_SIZE));
+                    returnProxy.storageSlot_jslib = target.storageSlot_jslib.add(arraySlots.slot);
                     returnProxy.currentType_jslib = currentType.base;
-                    slotOffset = bytePosition % SLOT_SIZE;
+                    slotOffset = arraySlots.slotOffset;
                 }
 
                 // console.log(currentType);
