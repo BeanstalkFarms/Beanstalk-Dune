@@ -76,50 +76,48 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     // has an option to get the whole array and iterate it.
                     // Currently this only would be effective for flat arrays containing primitive types.
 
-                    let resultThenable;
-                    {
-                        // Starting point of the array in storage, will retrieve sequentially after this
-                        let arrayStart = -1;
-                        // Number of bytes to retrieve. Used in determining if more storage should be retrieved.
-                        let numberOfBytes = -1;
-                        if (returnType.encoding === 'dynamic_array') {
-                            // The array begins at keccak(slot)
-                            const encodedSlot = abiCoder.encode(['uint256'], [returnProxy.storageSlot_jslib.toHexString()]);
-                            const keccak = ethers.keccak256(encodedSlot);
-                            arrayStart = BigNumber.from(keccak);
-                            // numberOfBytes will be calculated on first call to resultThenable.
-                        } else {
-                            arrayStart = returnProxy.storageSlot_jslib;
-                            numberOfBytes = returnType.numberOfBytes;
-                        }
-                        resultThenable = (data, arrayIndex) => (resolve, reject) => {
-                            const hasMoreSlots = numberOfBytes - SLOT_SIZE*(arrayIndex) > SLOT_SIZE;
-                            const getStorage = () => provider.getStorageAt(contractAddress, arrayStart.add(arrayIndex), blockNumber)
-                                    .then(valueAtSlot => {
-                                        const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(SLOT_SIZE, numberOfBytes));
-                                        if (!hasMoreSlots) {
-                                            // TODO: decode only up to the size of the array (avoid padding with zeros)
-                                            resolve(decodeType([...data, result], returnType, types));
-                                        } else {
-                                            // Recursion here
-                                            resolve({then: resultThenable([...data, result], arrayIndex + 1)});
-                                        }
-                                    });
-                            if (numberOfBytes === -1) {
-                                provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib, blockNumber)
-                                        .then(valueAtSlot => {
-                                            const bytesPerElement = types[returnType.base].numberOfBytes;
-                                            const slotsPerElement = 1 / Math.floor(SLOT_SIZE / bytesPerElement);
-                                            numberOfBytes = Math.ceil(slotsPerElement * valueAtSlot) * SLOT_SIZE;
-                                        })
-                                        .then(getStorage);
-                            }
-                            getStorage();
-                        };
+                    // Starting point of the array in storage, will retrieve sequentially after this
+                    let arrayStart = -1;
+                    // Number of bytes to retrieve. Used in determining if more storage should be retrieved.
+                    let numberOfBytes = -1;
+                    if (returnType.encoding === 'dynamic_array') {
+                        // The array begins at keccak(slot)
+                        const encodedSlot = abiCoder.encode(['uint256'], [returnProxy.storageSlot_jslib.toHexString()]);
+                        const keccak = ethers.keccak256(encodedSlot);
+                        arrayStart = BigNumber.from(keccak);
+                        // numberOfBytes will be calculated on first call to resultThenable.
+                    } else {
+                        arrayStart = returnProxy.storageSlot_jslib;
+                        numberOfBytes = returnType.numberOfBytes;
                     }
+                    const makeResultThenable = (data, arrayIndex) => (resolve, reject) => {
+                        const hasMoreSlots = numberOfBytes - SLOT_SIZE*(arrayIndex) > SLOT_SIZE;
+                        const getStorage = () => provider.getStorageAt(contractAddress, arrayStart.add(arrayIndex), blockNumber)
+                                .then(valueAtSlot => {
+                                    const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(SLOT_SIZE, numberOfBytes));
+                                    if (!hasMoreSlots) {
+                                        // TODO: decode only up to the size of the array (avoid padding with zeros)
+                                        resolve(decodeType([...data, result], returnType, types));
+                                    } else {
+                                        // Recursion here
+                                        resolve({then: makeResultThenable([...data, result], arrayIndex + 1)});
+                                    }
+                                });
+                        if (numberOfBytes === -1) {
+                            provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib, blockNumber)
+                                    .then(valueAtSlot => {
+                                        const bytesPerElement = types[returnType.base].numberOfBytes;
+                                        const slotsPerElement = 1 / Math.floor(SLOT_SIZE / bytesPerElement);
+                                        numberOfBytes = Math.ceil(slotsPerElement * valueAtSlot) * SLOT_SIZE;
+                                    })
+                                    .then(getStorage);
+                        } else {
+                            getStorage();
+                        }
+                    };
                     // Since at this point we are operating on an array, we can assume that "then" won't
                     // collide with a variable name (i.e. can't access property .then on an array in solidity)
-                    returnProxy.then = resultThenable([], 0);
+                    returnProxy.then = makeResultThenable([], 0);
 
                 } else if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
                     // There are no further members, therefore this must be the end.
