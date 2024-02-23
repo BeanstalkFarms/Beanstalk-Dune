@@ -103,11 +103,11 @@ async function storageTest() {
     const case1 = await beanstalk.s.cases[1]; // expect 0x01
     console.log('temp case 1:', case1);
 
-    // Array (one slot)
+    // Fixed - whole array (one slot)
     const allCases = await beanstalk.s.cases;
     console.log('all temp cases:', allCases);
 
-    // Array (multiple slots)
+    // Fixed - whole array (multiple slots)
     const deprecated = await beanstalk.s.deprecated;
     console.log('who knows whats in here (deprecated)', deprecated);
     const deprecated12 = await beanstalk.s.deprecated[12];
@@ -118,9 +118,12 @@ async function storageTest() {
     assertNonzero({seasonTimestamp, seasonNumber, sunriseBlock, pods, internalBeans, case1, deprecated12, allCases1: allCases[1], deprecated12: deprecated[12], deprecated12AsNumber});
     assertTrue({claimedURBean});
 
-    // Dyamic size array
+    // Dyamic - one element
+    const activeBips0 = await beanstalk.s.g.activeBips[0];
+    console.log('activeBips[0]', activeBips0);
 
-    // TODO: dynamic arrays
-
+    // Dynamic - whole array
+    const activeBipsAll = await beanstalk.s.g.activeBips;
+    console.log('activeBipsAll', activeBipsAll);
 }
 storageTest();
