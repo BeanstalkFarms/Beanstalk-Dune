@@ -5,15 +5,17 @@ const SLOT_SIZE = 32;
 
 /**
  * Gets the value of the requested variable, accounting for packing
- * @param {string} data - The bytes data in an arbitrary storage slot
+ * @param {string} data - The bytes data in an arbitrary storage slot. If the length of this data
+ *   is fewer than SLOT_SIZE bytes, it is assumed to be lower order within its respective slot.
  * @param {number} start - The position of the data in its storage slot
  * @param {number} size - The size of the variable in bytes
  * @return {string} Hexadecimal representation of the result, using {size} bytes
  */
 function getStorageBytes(data, start, size) {
-    const lower = (data.startsWith('0x') ? 2 : 0) + (SLOT_SIZE - start - size)*2;
+    const dataOnly = data.startsWith('0x') ? data.slice(2) : data;
+    const lower = (dataOnly.length/2 - start - size)*2;
     const upper = lower + size*2;
-    return data.substring(lower, upper);
+    return dataOnly.substring(lower, upper);
 }
 
 /**
@@ -42,20 +44,19 @@ function decodeTypeLabel(type, typesMapping) {
 /**
  * AbiCoder cannot handle arrays of integers smaller than uint256, custom solution is required
  * @param {string} arrayType - entry in the types mapping for this array
- * @param {string} dataSlots - list of data contained in potentially multiple contiguous storage slots
+ * @param {string} dataSlots - array of data contained in potentially multiple contiguous storage slots
  * @param {object} typesMapping - the types mapping from storageLayout file
  * @return {array<BigNumber>} ordered array of BigNumber corresponding to the contents
  */
 function decodeArray(arrayType, dataSlots, typesMapping) {
-    // console.debug('Decoding array:', arrayType, data);
 
-    const { dataSizeBits, arraySize } = decodeTypeLabel(arrayType, typesMapping);
+    const { dataSizeBits } = decodeTypeLabel(arrayType, typesMapping);
     const dataSizeBytes = dataSizeBits / 8;
 
     const retval = [];
-    for (const slot of dataSlots) {
-        for (let offset = 0; offset < SLOT_SIZE; offset += dataSizeBytes) {
-            const entry = getStorageBytes(slot, offset, dataSizeBytes);
+    for (const data of dataSlots) {
+        for (let offset = 0; offset < data.length / 2; offset += dataSizeBytes) {
+            const entry = getStorageBytes(data, offset, dataSizeBytes);
             retval.push(decodeType(entry, typesMapping[arrayType.base], typesMapping));
         }
     }

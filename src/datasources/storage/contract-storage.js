@@ -22,6 +22,7 @@ function copy(obj) {
  * > await beanstalk.s.a[account].field.plots[index]
  */
 function makeProxyHandler(provider, contractAddress, types, blockNumber = 'latest') {
+    const getStorageAt = (storageSlot) => provider.getStorageAt(contractAddress, storageSlot, blockNumber);
     const handler = {
         get: function(target, property) {
             if (['storageSlot_jslib', 'currentType_jslib', 'then'].includes(property)) {
@@ -48,7 +49,6 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     const keccak = ethers.keccak256(encoded);
                     returnProxy.storageSlot_jslib = BigNumber.from(keccak);
                     returnProxy.currentType_jslib = currentType.value;
-                    // console.debug('in mapping', keyType, property, target.storageSlot_jslib);
                 } else if (currentType.encoding === 'dynamic_array') {
                     // Dynamic array
                     returnProxy = new Proxy(copy(types[currentType.base]), handler);
@@ -56,7 +56,6 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     const keccak = ethers.keccak256(encoded);
                     returnProxy.storageSlot_jslib = BigNumber.from(keccak).add(property);
                     returnProxy.currentType_jslib = currentType.base;
-                     
                 } else if (currentType.label.includes('[')) {
                     // Fixed array
                     const arrayBase = types[currentType.base];
@@ -66,9 +65,6 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     returnProxy.currentType_jslib = currentType.base;
                     slotOffset = arraySlots.slotOffset;
                 }
-
-                // console.log(currentType);
-                // console.log(returnProxy.currentType_jslib);
                 
                 const returnType = types[returnProxy.currentType_jslib];
                 if (returnType.label.includes('[')) {
@@ -80,35 +76,40 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     let arrayStart = -1;
                     // Number of bytes to retrieve. Used in determining if more storage should be retrieved.
                     let numberOfBytes = -1;
+                    const bytesPerElement = types[returnType.base].numberOfBytes;
+                    // Max number of bytes that could be used by one array slot. For example, if its an array
+                    // of structs which are 10 bytes each, maxUsedBytesPerSlot = 30.
+                    const maxUsedBytesPerSlot = Math.floor(SLOT_SIZE / bytesPerElement) * bytesPerElement;
                     if (returnType.encoding === 'dynamic_array') {
                         // The array begins at keccak(slot)
                         const encodedSlot = abiCoder.encode(['uint256'], [returnProxy.storageSlot_jslib.toHexString()]);
                         const keccak = ethers.keccak256(encodedSlot);
                         arrayStart = BigNumber.from(keccak);
-                        // numberOfBytes will be calculated on first call to resultThenable.
+                        // numberOfBytes will be calculated on first call to makeResultThenable.
                     } else {
                         arrayStart = returnProxy.storageSlot_jslib;
                         numberOfBytes = returnType.numberOfBytes;
                     }
                     const makeResultThenable = (data, arrayIndex) => (resolve, reject) => {
-                        const hasMoreSlots = numberOfBytes - SLOT_SIZE*(arrayIndex) > SLOT_SIZE;
-                        const getStorage = () => provider.getStorageAt(contractAddress, arrayStart.add(arrayIndex), blockNumber)
+                        const getStorage = () => getStorageAt(arrayStart.add(arrayIndex))
                                 .then(valueAtSlot => {
-                                    const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(SLOT_SIZE, numberOfBytes));
-                                    if (!hasMoreSlots) {
-                                        // TODO: decode only up to the size of the array (avoid padding with zeros)
-                                        resolve(decodeType([...data, result], returnType, types));
-                                    } else {
+                                    const remainingBytes = numberOfBytes - SLOT_SIZE*(arrayIndex);
+                                    // Parse only the bytes which are relevant to the contents of the result array
+                                    const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(maxUsedBytesPerSlot, remainingBytes));
+                                    if (remainingBytes > SLOT_SIZE) {
                                         // Recursion here
                                         resolve({then: makeResultThenable([...data, result], arrayIndex + 1)});
+                                    } else {
+                                        resolve(decodeType([...data, result], returnType, types));
                                     }
                                 });
                         if (numberOfBytes === -1) {
-                            provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib, blockNumber)
-                                    .then(valueAtSlot => {
-                                        const bytesPerElement = types[returnType.base].numberOfBytes;
-                                        const slotsPerElement = 1 / Math.floor(SLOT_SIZE / bytesPerElement);
-                                        numberOfBytes = Math.ceil(slotsPerElement * valueAtSlot) * SLOT_SIZE;
+                            getStorageAt(returnProxy.storageSlot_jslib)
+                                    .then(arraySize => {
+                                        const elementsPerSlot = Math.floor(SLOT_SIZE / bytesPerElement);
+                                        const totalSlots = Math.ceil(1 / elementsPerSlot * arraySize);
+                                        const elementsInFinalSlot = arraySize % elementsPerSlot;
+                                        numberOfBytes = (totalSlots - 1) * SLOT_SIZE + elementsInFinalSlot * bytesPerElement;
                                     })
                                     .then(getStorage);
                         } else {
@@ -124,7 +125,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
 
                     const returnPromise = new Promise((resolve, reject) => {
                         // console.debug('Retrieving storage slot:', returnProxy.storageSlot_jslib.toHexString());
-                        provider.getStorageAt(contractAddress, returnProxy.storageSlot_jslib, blockNumber)
+                        getStorageAt(returnProxy.storageSlot_jslib)
                                 .then(valueAtSlot => {
                                     // console.debug('slot:', valueAtSlot);
                                     const result = getStorageBytes(valueAtSlot, slotOffset, returnType.numberOfBytes);
