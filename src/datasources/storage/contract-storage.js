@@ -123,7 +123,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                 } else if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
                     // There are no further members, therefore this must be the end.
 
-                    const returnPromise = new Promise((resolve, reject) => {
+                    const returnThenable = (resolve, reject) => {
                         // console.debug('Retrieving storage slot:', returnProxy.storageSlot_jslib.toHexString());
                         getStorageAt(returnProxy.storageSlot_jslib)
                                 .then(valueAtSlot => {
@@ -131,12 +131,22 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                                     const result = getStorageBytes(valueAtSlot, slotOffset, returnType.numberOfBytes);
                                     resolve(decodeType(result, returnType, types));
                                 });
-                    });
-                    // Adds a toNumber function onto the return promise. This allows callers to choose whether
-                    // to receive BigNumber or number in a single line without having to wrap the await.
-                    // i.e. await beanstalk.s.deprecated[12].toNumber() vs (await beanstalk.s.deprecated[12]).toNumber()
-                    returnPromise.toNumber = () => {return new Promise((resolve, reject) => returnPromise.then(bn => resolve(bn.toNumber())))};
-                    return returnPromise;
+                    };
+                    
+                    // Generic thenable is preferable to Promise as sometimes the caller only wants the slot number,
+                    // and in such cases there is no need to preload the result.
+                    return {
+                        slot: returnProxy.storageSlot_jslib,
+                        then: returnThenable,
+                        // Adds a toNumber function onto the return thenable. This allows callers to choose whether
+                        // to receive BigNumber or number in a single line without having to wrap the await.
+                        // i.e. await beanstalk.s.deprecated[12].toNumber() vs (await beanstalk.s.deprecated[12]).toNumber()
+                        toNumber: () => {
+                            // Compare with promise syntax
+                            // {return new Promise((resolve, reject) => returnThenable.then(bn => resolve(bn.toNumber())))};
+                            return { then: (resolve, reject) => returnThenable((bn) => resolve(bn.toNumber())) }
+                        }
+                    }
                 }
                 return returnProxy;
             }

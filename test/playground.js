@@ -1,8 +1,8 @@
 const ethers = require('ethers');
 const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../src/provider.js');
-const { BEANSTALK, BEAN, PEPE, UNRIPE_BEAN, UNRIPE_LP } = require('../src/addresses.js');
-const { asyncBeanstalkContractGetter, getBalance } = require('../src/datasources/contract-function.js');
+const { BEANSTALK, BEANSTALK_PRICE, BEAN, WETH, USDC, TETHER, DAI, PEPE, UNRIPE_BEAN, UNRIPE_LP } = require('../src/addresses.js');
+const { asyncBeanstalkContractGetter, asyncBean3CrvContractGetter, asyncBeanstalkPriceContractGetter, getBalance } = require('../src/datasources/contract-function.js');
 const { getStorageBytes } = require('../src/datasources/storage/utils/solidity-data.js');
 const ContractStorage = require('../src/datasources/storage/contract-storage.js');
 const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
@@ -125,5 +125,65 @@ async function storageTest() {
     // Dynamic - whole array
     const activeBipsAll = await beanstalk.s.g.activeBips;
     console.log('activeBipsAll', activeBipsAll);
+
+    // Slot only
+    console.log(beanstalk.s.season.timestamp.slot);
+    console.log(beanstalk.s.unripeClaimed[UNRIPE_BEAN][unripeHolder].slot);
+    console.log(beanstalk.s.deprecated[12].slot);
+
 }
 storageTest();
+
+(async () => {
+
+    // Binary search to find first nonzero occurrence of this field
+    // let bottom = 15277144;
+    // let top = 15293274;
+    // let middle = bottom + (top - bottom)/2;
+    // while (true) {
+    //     const beanstalk = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, middle);
+    //     const activeFert = await beanstalk.s.activeFertilizer;
+    //     console.log(middle, activeFert);
+    //     if (activeFert.eq(BigNumber.from('0x00'))) {
+    //         bottom = middle;
+    //         middle = Math.round(middle + (top - middle)/2);
+    //     } else {
+    //         top = middle;
+    //         middle = Math.round(middle - (middle - bottom)/2);
+    //     }
+    //     console.log(top, middle, bottom);
+    //     if (top - bottom < 2) {
+    //         break;
+    //     }
+    // }
+    // const b1 = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, middle-1);
+    // const b2 = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, middle);
+    // const b3 = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, middle+1);
+    // console.log(middle - 1, await b1.s.activeFertilizer, await b1.s.unfertilizedIndex);
+    // console.log(middle, await b2.s.activeFertilizer, await b2.s.unfertilizedIndex);
+    // console.log(middle + 1, await b3.s.activeFertilizer, await b3.s.unfertilizedIndex);
+
+    // const usdcIn3Pool = await getBalance(TETHER, '0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7', 17687936);
+    // console.log(usdcIn3Pool);
+
+    // const balances = await asyncBean3CrvContractGetter().then(c => c.callStatic.get_balances());
+    // console.log(balances[0].div(BigNumber.from(10).pow(6)));
+    // console.log(balances[1].div(BigNumber.from(10).pow(18)));
+
+    // console.log(balances[0].mul(BigNumber.from(10).pow(12)).toString());
+    // console.log(balances[1].mul(Math.round(1.030992668095 * Math.pow(10, 12))).div(BigNumber.from(10).pow(12)).toString());
+    
+    // console.log(BigNumber.from('9396029925').mul(BigNumber.from(10).pow(12)).toString());
+    // console.log(BigNumber.from('799334273630492').mul(Math.round(1.030992668095 * Math.pow(10, 12))).div(BigNumber.from(10).pow(12)).toString());
+    // const vprice = await asyncBean3CrvContractGetter().then(c => c.callStatic.get_virtual_price());
+    // console.log(vprice);
+
+    // const curvePrice = await asyncBeanstalkPriceContractGetter().then(c => c.callStatic.getCurve());
+    // console.log(curvePrice);
+
+    // const stemTipUrbean = await asyncBeanstalkContractGetter().then(c => c.callStatic.stemTipForToken(UNRIPE_BEAN));
+    // const stemTipUrlp = await asyncBeanstalkContractGetter().then(c => c.callStatic.stemTipForToken(UNRIPE_LP));
+    // console.log(stemTipUrbean);
+    // console.log(stemTipUrlp);
+
+})();

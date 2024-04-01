@@ -1,8 +1,10 @@
 const { alchemy } = require('../provider.js');
 const { Contract, BigNumber } = require('alchemy-sdk');
-const { BEANSTALK, DECIMALS } = require('../addresses.js');
+const { BEANSTALK, BEANSTALK_PRICE, BEAN3CRV, DECIMALS } = require('../addresses.js');
 const beanAbi = require('../contracts/beanstalk/abi.json');
 const erc20Abi = require('../contracts/erc20.json');
+const bean3crvAbi = require('../contracts/bean3crv_c9c3.json');
+const beanstalkPriceAbi = require('../contracts/BeanstalkPrice.json');
 
 const contracts = {};
 async function getContractAsync(address, abi) {
@@ -17,12 +19,14 @@ async function getContractAsync(address, abi) {
 async function getBalance(token, holder, blockNumber = 'latest') {
     const erc20Contract = await getContractAsync(token, erc20Abi);
     const balance = await erc20Contract.callStatic.balanceOf(holder, { blockTag: blockNumber });
-    const divisor = BigNumber.from('1' + '0'.repeat(DECIMALS[token]));
-    return balance.div(divisor).toNumber();
+    balance.decimals = DECIMALS[token];
+    return balance;
 }
 
 module.exports = {
     asyncBeanstalkContractGetter: async () => getContractAsync(BEANSTALK, beanAbi),
+    asyncBean3CrvContractGetter: async () => getContractAsync(BEAN3CRV, bean3crvAbi),
+    asyncBeanstalkPriceContractGetter: async () => getContractAsync(BEANSTALK_PRICE, beanstalkPriceAbi),
     createAsyncERC20ContractGetter: (address) => async () => getContractAsync(address, erc20Abi),
     getBalance: getBalance
 };
