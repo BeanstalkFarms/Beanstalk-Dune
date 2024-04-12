@@ -1,8 +1,8 @@
 const ethers = require('ethers');
 const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../src/provider.js');
-const { BEANSTALK, BEANSTALK_PRICE, BEAN, WETH, USDC, TETHER, DAI, PEPE, UNRIPE_BEAN, UNRIPE_LP } = require('../src/addresses.js');
-const { asyncBeanstalkContractGetter, asyncBean3CrvContractGetter, asyncBeanstalkPriceContractGetter, getBalance } = require('../src/datasources/contract-function.js');
+const { BEANSTALK, BEANSTALK_PRICE, BEAN, WETH, USDC, TETHER, DAI, PEPE, UNRIPE_BEAN, UNRIPE_LP, BEAN3CRV_V1, BEANLUSD, LUSD_3POOL, LUSD } = require('../src/addresses.js');
+const { asyncBeanstalkContractGetter, asyncBean3CrvContractGetter, asyncBeanstalkPriceContractGetter, getBalance, asyncBean3CrvV1ContractGetter } = require('../src/datasources/contract-function.js');
 const { getStorageBytes } = require('../src/datasources/storage/utils/solidity-data.js');
 const ContractStorage = require('../src/datasources/storage/contract-storage.js');
 const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
@@ -132,7 +132,7 @@ async function storageTest() {
     console.log(beanstalk.s.deprecated[12].slot);
 
 }
-storageTest();
+// storageTest();
 
 (async () => {
 
@@ -185,5 +185,20 @@ storageTest();
     // const stemTipUrlp = await asyncBeanstalkContractGetter().then(c => c.callStatic.stemTipForToken(UNRIPE_LP));
     // console.log(stemTipUrbean);
     // console.log(stemTipUrlp);
+
+    const vprice = await asyncBean3CrvV1ContractGetter(BEAN3CRV_V1).then(c => c.callStatic.get_virtual_price({blockTag: 14266424}));
+    const supply = await asyncBean3CrvV1ContractGetter(BEAN3CRV_V1).then(c => c.callStatic.totalSupply({blockTag: 14266424}));
+    console.log(vprice.mul(supply).div(BigNumber.from(Math.pow(10,15))).div(BigNumber.from(Math.pow(10,15))));
+    //1001057805629422154
+    //3041196198395316937000000
+    //3044413192854/2 - 1599413857097
+
+    let lusdHolding = await asyncBean3CrvV1ContractGetter(LUSD).then(c => c.callStatic.balanceOf(BEANLUSD, {blockTag: 14450214}));
+    console.log('l', lusdHolding.div(BigNumber.from('1000000000000000000')));
+
+    const beanLusdPrice = await asyncBean3CrvV1ContractGetter(BEANLUSD).then(c => c.callStatic.get_dy(0, 1, 1000000, {blockTag: 14450214}));
+    const lusdPrice = await asyncBean3CrvV1ContractGetter(LUSD_3POOL).then(c => c.callStatic.get_dy(0, 1, BigInt(1000000000000000000), {blockTag: 14450214}));
+    console.log(beanLusdPrice);
+    console.log(lusdPrice);//.div(BigNumber.from('1000000000000000000'))
 
 })();
