@@ -1,12 +1,15 @@
 const ethers = require('ethers');
 const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../src/provider.js');
-const { BEANSTALK, BEANSTALK_PRICE, BEAN, WETH, USDC, TETHER, DAI, PEPE, UNRIPE_BEAN, UNRIPE_LP, BEAN3CRV_V1, BEANLUSD, LUSD_3POOL, LUSD } = require('../src/addresses.js');
-const { asyncBeanstalkContractGetter, asyncBean3CrvContractGetter, asyncBeanstalkPriceContractGetter, getBalance, asyncBean3CrvV1ContractGetter } = require('../src/datasources/contract-function.js');
+const { BEANSTALK, BEANSTALK_PRICE, BEAN, WETH, USDC, TETHER, DAI, PEPE, UNRIPE_BEAN, UNRIPE_LP, BEAN3CRV_V1, BEANLUSD, LUSD_3POOL, LUSD, BEANETH_UNIV2, WETHUSCD_UNIV2 } = require('../src/addresses.js');
+const { asyncBeanstalkContractGetter, asyncBean3CrvContractGetter, asyncBeanstalkPriceContractGetter, getBalance, asyncBean3CrvV1ContractGetter, getContractAsync, asyncUniswapV2ContractGetter } = require('../src/datasources/contract-function.js');
 const { getStorageBytes } = require('../src/datasources/storage/utils/solidity-data.js');
 const ContractStorage = require('../src/datasources/storage/contract-storage.js');
 const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
+const storageLayoutPreReplant = require('../src/contracts/beanstalk/storageLayout-PreReplant.json');
 const { assertNonzero, assertTrue } = require('./assert-simple.js');
+
+const beanstalkInitAbi = require('../src/contracts/beanstalk/Beanstalk-Init.json');
 
 async function logTestInfo() {
     // recent mints started: 18963933
@@ -186,19 +189,91 @@ async function storageTest() {
     // console.log(stemTipUrbean);
     // console.log(stemTipUrlp);
 
-    const vprice = await asyncBean3CrvV1ContractGetter(BEAN3CRV_V1).then(c => c.callStatic.get_virtual_price({blockTag: 14266424}));
-    const supply = await asyncBean3CrvV1ContractGetter(BEAN3CRV_V1).then(c => c.callStatic.totalSupply({blockTag: 14266424}));
-    console.log(vprice.mul(supply).div(BigNumber.from(Math.pow(10,15))).div(BigNumber.from(Math.pow(10,15))));
-    //1001057805629422154
-    //3041196198395316937000000
-    //3044413192854/2 - 1599413857097
+    // const vprice = await asyncBean3CrvV1ContractGetter(BEAN3CRV_V1).then(c => c.callStatic.get_virtual_price({blockTag: 14266424}));
+    // const supply = await asyncBean3CrvV1ContractGetter(BEAN3CRV_V1).then(c => c.callStatic.totalSupply({blockTag: 14266424}));
+    // console.log(vprice.mul(supply).div(BigNumber.from(Math.pow(10,15))).div(BigNumber.from(Math.pow(10,15))));
+    // //1001057805629422154
+    // //3041196198395316937000000
+    // //3044413192854/2 - 1599413857097
 
-    let lusdHolding = await asyncBean3CrvV1ContractGetter(LUSD).then(c => c.callStatic.balanceOf(BEANLUSD, {blockTag: 14450214}));
-    console.log('l', lusdHolding.div(BigNumber.from('1000000000000000000')));
+    // let lusdHolding = await asyncBean3CrvV1ContractGetter(LUSD).then(c => c.callStatic.balanceOf(BEANLUSD, {blockTag: 14450214}));
+    // console.log('l', lusdHolding.div(BigNumber.from('1000000000000000000')));
 
-    const beanLusdPrice = await asyncBean3CrvV1ContractGetter(BEANLUSD).then(c => c.callStatic.get_dy(0, 1, 1000000, {blockTag: 14450214}));
-    const lusdPrice = await asyncBean3CrvV1ContractGetter(LUSD_3POOL).then(c => c.callStatic.get_dy(0, 1, BigInt(1000000000000000000), {blockTag: 14450214}));
-    console.log(beanLusdPrice);
-    console.log(lusdPrice);//.div(BigNumber.from('1000000000000000000'))
+    // const beanLusdPrice = await asyncBean3CrvV1ContractGetter(BEANLUSD).then(c => c.callStatic.get_dy(0, 1, 1000000, {blockTag: 14450214}));
+    // const lusdPrice = await asyncBean3CrvV1ContractGetter(LUSD_3POOL).then(c => c.callStatic.get_dy(0, 1, BigInt(1000000000000000000), {blockTag: 14450214}));
+    // console.log(beanLusdPrice);
+    // console.log(lusdPrice);//.div(BigNumber.from('1000000000000000000'))
 
+    // const season67 = 12992176;
+    // const beanstalkInit = await getContractAsync(BEANSTALK, beanstalkInitAbi);
+    // twap = await beanstalkInit.callStatic.getTWAPPrices({ blockTag: season67 });
+    // twap = [BigNumber.from("321596790773973"), BigNumber.from("316945238642414")];
+    // console.log(twap);
+    // reserves = await beanstalkInit.callStatic.reserves({ blockTag: season67 });
+    // console.log(reserves);
+
+    // const mulReserves = reserves[0].mul(reserves[1]).mul(BigNumber.from("1000000"));
+    // const currentBeans = mulReserves.div(twap[0]/*.mul(BigNumber.from("1000000000000000000"))*/);
+    // const targetBeans = mulReserves.div(twap[1]/*.mul(BigNumber.from("1000000000000000000"))*/);
+    // console.log(sqrt(currentBeans), sqrt(targetBeans), sqrt(targetBeans).sub(sqrt(currentBeans)));
+    // 735753474
+    // 735753474
+
+    const beanethuniv2 = await asyncUniswapV2ContractGetter(BEANETH_UNIV2);
+    // const reserves = await beanethuniv2.callStatic.getReserves({ blockTag: 12992215 })
+    // const price0last = await beanethuniv2.callStatic.price0CumulativeLast({ blockTag: 12992215 })
+    const price1last = await beanethuniv2.callStatic.price1CumulativeLast({ blockTag: 12992215 })
+    // console.log(reserves);
+    // console.log(price0last);
+    console.log(price1last);
+
+    const wethusdcuniv2 = await asyncUniswapV2ContractGetter(WETHUSCD_UNIV2);
+    const price0last = await wethusdcuniv2.callStatic.price0CumulativeLast({ blockTag: 12992215 })
+    console.log(price0last);
+
+    // const mulReserves = reserves[0].times(reserves[1]).times(BI_10.pow(6));
+    // const currentBeans = mulReserves.div(prices.value0.times(BI_10.pow(18))).sqrt();
+    // const targetBeans = mulReserves.div(prices.value1.times(BI_10.pow(18))).sqrt();
+    // const deltaB = targetBeans.minus(currentBeans);
+
+    // const blockStart = 14569458;
+    // for (let i = 0; i < 2; i++) {
+    //     const bean3crv1 = await asyncBean3CrvV1ContractGetter(BEAN3CRV_V1);
+    //     const cumulativeLast = await bean3crv1.callStatic.get_price_cumulative_last({blockTag: blockStart + 100*i});
+    //     const balances = await bean3crv1.callStatic.get_balances({blockTag: blockStart + 100*i});
+    //     console.log(cumulativeLast);
+    //     console.log(balances);
+    //     console.log(await bean3crv1.callStatic.block_timestamp_last({blockTag: blockStart + 100*i}));
+    //     cumulativeLast[0] = cumulativeLast[0].add(balances[0].mul(623));
+    //     cumulativeLast[1] = cumulativeLast[1].add(balances[1].mul(623));
+    //     console.log(cumulativeLast[0].add(balances[0].mul(623)), cumulativeLast[1].add(balances[1].mul(623)));
+    //     console.log('------------------');
+    // }
+
+    // cumulativeBalances = IMeta3CurveOracle(C.CURVE_BEAN_METAPOOL).get_price_cumulative_last();
+    // _twaBalances = IMeta3CurveOracle(C.CURVE_BEAN_METAPOOL).get_balances();
+    // uint256 lastTimestamp = IMeta3CurveOracle(C.CURVE_BEAN_METAPOOL).block_timestamp_last();
+
+    // const season2 = new ContractStorage(await providerThenable, BEANSTALK, storageLayoutPreReplant, 12974550);
+    // console.log(await season2.s.index);
+    // console.log(await season2.s.o.initialized);
 })();
+
+function sqrt(value) {
+    if (value.lt(BigNumber.from("0"))) {
+        throw new Error("Cannot compute square root of a negative number");
+    }
+
+    if (value.lt(BigNumber.from("2"))) {
+        return value;
+    }
+
+    let z = value;
+    let x = value.div(2).add(1); // Initial guess: (value / 2) + 1
+
+    while (x.lt(z)) {
+        z = x;
+        x = value.div(x).add(x).div(2);
+    }
+    return z;
+}

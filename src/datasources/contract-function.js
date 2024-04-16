@@ -1,11 +1,12 @@
 const { alchemy } = require('../provider.js');
 const { Contract } = require('alchemy-sdk');
-const { BEANSTALK, BEANSTALK_PRICE, BEAN3CRV, DECIMALS, BEAN3CRV_V1 } = require('../addresses.js');
+const { BEANSTALK, BEANSTALK_PRICE, BEAN3CRV, DECIMALS, BEANETH_UNIV2 } = require('../addresses.js');
 const beanAbi = require('../contracts/beanstalk/abi.json');
 const erc20Abi = require('../contracts/erc20.json');
 const bean3crvAbi = require('../contracts/bean3crv_c9c3.json');
 const bean3crvV1Abi = require('../contracts/bean3crv_3a70.json');
 const beanstalkPriceAbi = require('../contracts/BeanstalkPrice.json');
+const uniswapV2Abi = require('../contracts/uniswapv2.json');
 
 const contracts = {};
 async function getContractAsync(address, abi) {
@@ -29,6 +30,8 @@ module.exports = {
     asyncBean3CrvContractGetter: async () => getContractAsync(BEAN3CRV, bean3crvAbi),
     asyncBean3CrvV1ContractGetter: async (address) => getContractAsync(address, bean3crvV1Abi),
     asyncBeanstalkPriceContractGetter: async () => getContractAsync(BEANSTALK_PRICE, beanstalkPriceAbi),
+    asyncUniswapV2ContractGetter: async (address) => getContractAsync(address, uniswapV2Abi),
     createAsyncERC20ContractGetter: (address) => async () => getContractAsync(address, erc20Abi),
+    getContractAsync: getContractAsync,
     getBalance: getBalance
 };

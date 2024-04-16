@@ -486,8 +486,7 @@
       ],
       "inputs": [],
       "stateMutability": "view",
-      "type": "function",
-      "gas": 2284
+      "type": "function"
     },
     {
       "name": "get_twap_balances",
@@ -525,8 +524,7 @@
       ],
       "inputs": [],
       "stateMutability": "view",
-      "type": "function",
-      "gas": 2344
+      "type": "function"
     },
     {
       "name": "admin_fee",
@@ -1219,8 +1217,7 @@
       ],
       "inputs": [],
       "stateMutability": "view",
-      "type": "function",
-      "gas": 2261
+      "type": "function"
     },
     {
       "name": "initial_A",
