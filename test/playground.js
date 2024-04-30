@@ -8,6 +8,7 @@ const ContractStorage = require('../src/datasources/storage/contract-storage.js'
 const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
 const storageLayoutPreReplant = require('../src/contracts/beanstalk/storageLayout-PreReplant.json');
 const { assertNonzero, assertTrue } = require('./assert-simple.js');
+const { beanstalkSG, beanSG, gql } = require('../src/datasources/subgraph/subgraph-query.js')
 
 const beanstalkInitAbi = require('../src/contracts/beanstalk/Beanstalk-Init.json');
 const calculationsCurveAbi = require('../src/contracts/curve/CalculationsCurve.json');
@@ -337,7 +338,7 @@ async function storageTest() {
     // let middle;
     // const u = () => middle = Math.floor((top + bottom) / 2);
     // u();
-    const beanstalk = await asyncBeanstalkContractGetter();
+    // const beanstalk = await asyncBeanstalkContractGetter();
     // console.log(await beanstalk.callStatic.getTotalUnderlying("0x1bea3ccd22f4ebd3d37d731ba31eeca95713716d"));
     // while (middle < top && middle > bottom) {
     //     const underlying = await beanstalk.callStatic.getUnderlyingToken(UNRIPE_LP, {blockTag: middle});
@@ -363,7 +364,22 @@ async function storageTest() {
     // await beanEthPreReplant(14559085);
     // await beanEthPreReplant(14559086);
 
-    console.log(await beanstalk.callStatic.getRecapPaidPercent({blockTag: 15299963}));
+    // console.log(await beanstalk.callStatic.getRecapPaidPercent({blockTag: 15299963}));
+
+    const beanSilo = await beanstalkSG(gql`
+        {
+        silo(id: "0xc1e088fc1323b20bcbee9bd1b9fc9546db5624c5") {
+            depositedBDV
+            id
+            plantableStalk
+            roots
+            stalk
+            whitelistedTokens
+            seeds
+        }
+        }
+    `);
+    console.log(beanSilo);
     
 })();
 
