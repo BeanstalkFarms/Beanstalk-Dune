@@ -562,8 +562,7 @@
       ],
       "inputs": [],
       "stateMutability": "view",
-      "type": "function",
-      "gas": 5821
+      "type": "function"
     },
     {
       "name": "get_virtual_price",
@@ -1204,8 +1203,7 @@
       ],
       "inputs": [],
       "stateMutability": "view",
-      "type": "function",
-      "gas": 2231
+      "type": "function"
     },
     {
       "name": "block_timestamp_last",

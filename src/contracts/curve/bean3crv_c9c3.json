@@ -563,8 +563,7 @@
       ],
       "inputs": [],
       "stateMutability": "view",
-      "type": "function",
-      "gas": 5821
+      "type": "function"
     },
     {
       "name": "get_virtual_price",
