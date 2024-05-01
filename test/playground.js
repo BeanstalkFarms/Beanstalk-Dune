@@ -8,7 +8,8 @@ const ContractStorage = require('../src/datasources/storage/contract-storage.js'
 const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
 const storageLayoutPreReplant = require('../src/contracts/beanstalk/storageLayout-PreReplant.json');
 const { assertNonzero, assertTrue } = require('./assert-simple.js');
-const { beanstalkSG, beanSG, gql } = require('../src/datasources/subgraph/subgraph-query.js')
+const { beanstalkSG, beanSG, beanTestSG, gql } = require('../src/datasources/subgraph/subgraph-query.js')
+const { getAllPegCrossBlocks } = require('../src/data/peg-crosses.js')
 
 const beanstalkInitAbi = require('../src/contracts/beanstalk/Beanstalk-Init.json');
 const calculationsCurveAbi = require('../src/contracts/curve/CalculationsCurve.json');
@@ -366,20 +367,7 @@ async function storageTest() {
 
     // console.log(await beanstalk.callStatic.getRecapPaidPercent({blockTag: 15299963}));
 
-    const beanSilo = await beanstalkSG(gql`
-        {
-        silo(id: "0xc1e088fc1323b20bcbee9bd1b9fc9546db5624c5") {
-            depositedBDV
-            id
-            plantableStalk
-            roots
-            stalk
-            whitelistedTokens
-            seeds
-        }
-        }
-    `);
-    console.log(beanSilo);
+    console.log(await getAllPegCrossBlocks());
     
 })();
 
