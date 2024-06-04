@@ -9,12 +9,36 @@ const beanstalkPriceAbi = require('../contracts/BeanstalkPrice.json');
 const uniswapV2Abi = require('../contracts/uniswapv2.json');
 const wellAbi = require('../contracts/basin/Well.json');
 const pumpAbi = require('../contracts/basin/Pump.json');
+const { ethers } = require('ethers');
 
 const contracts = {};
 async function getContractAsync(address, abi) {
     const key = JSON.stringify({ address, abi });
     if (contracts[key] == null) {
         contracts[key] = new Contract(address, abi, await alchemy.config.getProvider());
+
+        // Future development inclueds adding the option for a local rpc.
+        // This does not appear to work with the alchemy-sdk contract, and would therefore
+        // require a Proxy object wrapping the contract to bridge the .callStatic property.
+        // const provider = new ethers.JsonRpcProvider('http://localhost:8545');
+        // const contract = new ethers.Contract(address, abi, provider);
+        // const handler = {
+        //     get: function(target, prop, receiver) {
+        //         if (prop === 'callStatic') {
+        //             return new Proxy(target, {
+        //                 get: function(target, method, receiver) {
+        //                     if (typeof target[method] === 'function') {
+        //                         return target[method].bind(target);
+        //                     }
+        //                     return Reflect.get(target, method, receiver);
+        //                 }
+        //             });
+        //         }
+        //         return Reflect.get(target, prop, receiver);
+        //     }
+        // };
+        // const proxyContract = new Proxy(contract, handler);
+        // contracts[key] = proxyContract;
     }
     return contracts[key];
 }
