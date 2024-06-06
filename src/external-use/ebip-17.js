@@ -71,17 +71,18 @@ async function appendResults(results, block, userBdvDiscrepancy) {
   const prevResult = results[results.length - 1];
   const cumulativeBdvDiscrepancy = prevResult?.cumulativeDiscrepancy?.depositedBean ?? 0;
   const cumulativeStalkDiscrepancy = prevResult?.cumulativeDiscrepancy?.stalk ?? 0;
-  const cumulativeRootDiscrepancy = prevResult?.cumulativeDiscrepancy?.roots ?? 0;
+  const cumulativeRootDiscrepancy = prevResult?.cumulativeDiscrepancy?.roots ?? BigNumber.from(0);
 
   const userStalkDiscrepancy = userBdvDiscrepancy * Math.pow(10, 4); // 6 -> 10 decimals
 
-  const userRootDiscrepancy =
-      (await bs.s.s.roots - cumulativeRootDiscrepancy) * BigNumber.from(userStalkDiscrepancy)
-      / (await bs.s.s.stalk - BigNumber.from(cumulativeStalkDiscrepancy));
+  let userRootDiscrepancy =
+      (await bs.s.s.roots).sub(cumulativeRootDiscrepancy).mul(BigNumber.from(userStalkDiscrepancy))
+      .div((await bs.s.s.stalk).sub(BigNumber.from(cumulativeStalkDiscrepancy)));
 
   // Verify that this would not result in the user having negative roots
   const userCurrentRoots = await bs.s.a[userAccount].roots;
-  if (userRootDiscrepancy > userCurrentRoots) {
+  if (userRootDiscrepancy.gt(userCurrentRoots)) {
+    console.log(`User has more roots than calculated ${userRootDiscrepancy} ${userCurrentRoots}`);
     userRootDiscrepancy = userCurrentRoots;
   }
 
@@ -97,7 +98,7 @@ async function appendResults(results, block, userBdvDiscrepancy) {
       depositedBean: cumulativeBdvDiscrepancy + userBdvDiscrepancy,
       depositedBdv: cumulativeBdvDiscrepancy + userBdvDiscrepancy,
       stalk: cumulativeStalkDiscrepancy + userStalkDiscrepancy,
-      roots: cumulativeRootDiscrepancy + userRootDiscrepancy
+      roots: cumulativeRootDiscrepancy.add(userRootDiscrepancy)
     },
     block,
     txHash: transactions[0].hash
