@@ -3,6 +3,10 @@ const { asyncBeanstalkContractGetter } = require("../datasources/contract-functi
 const { beanstalkSG, gql } = require("../datasources/subgraph/subgraph-query");
 const { providerThenable } = require("../provider");
 const fs = require('fs');
+const { BigNumber } = require('alchemy-sdk');
+
+const ContractStorage = require("../datasources/storage/contract-storage");
+const storageLayout = require('../contracts/beanstalk/storageLayout.json');
 
 // EBIP-17 is necessary to correct the earned beans issue resolved by EBIP-16
 
@@ -40,12 +44,73 @@ async function depsositedIncludingGerminating(block) {
   // }
 }
 
+// `roots = s.s.roots.mul(stalk).div(s.s.stalk);`, which we need to remove from both the user and the global s.s.roots.
+// To calculate the amount of roots which should have been removed, we need to use the would-be correct values
+// for s.s.roots and s.s.stalk. so this will be something like
+// `roots = (s.s.roots - cumulativeRootDiscrepancy)*(userStalkDiscrepancy)/(s.s.stalk - cumulativeStalkDiscrepancy)`.
+// we then subtract that value from the user roots, and add it onto cumulativeDiscrepancyRoots for the next one,
+// also adding onto cumulativeDiscrepancyStalk for the next one
+async function appendResults(results, block, userBdvDiscrepancy) {
+
+  const provider = await providerThenable;
+  const bs = new ContractStorage(provider, BEANSTALK, storageLayout, block);
+
+  const blockData = await provider.getBlockWithTransactions(block);
+  const transactions = blockData.transactions.filter(tx => tx.to && tx.to.toLowerCase() === BEANSTALK.toLowerCase()
+      // These two txns occurred on the same block as some of the discrepancy txns.
+      // Manually omitted from the result for simplicity. The first is a deposit, the second is a sunrise.
+      && tx.hash !== '0x03f0efe504486671a0583ac0bf96ebe593cd92eec4fac71fb6a12a3e58c20672'
+      && tx.hash !== '0xb994038d84894c297a33df433d92799ff45012d1d3e08d402aa9b3e6fb96478b');
+  
+  if (transactions.length !== 1) {
+    throw new Error(`There is a missing or an extra transaction at block ${issue.block}, ${transactions.length}`);
+  }
+
+  const userAccount = transactions[0].from.toLowerCase();
+
+  const prevResult = results[results.length - 1];
+  const cumulativeBdvDiscrepancy = prevResult?.cumulativeDiscrepancy?.depositedBean ?? 0;
+  const cumulativeStalkDiscrepancy = prevResult?.cumulativeDiscrepancy?.stalk ?? 0;
+  const cumulativeRootDiscrepancy = prevResult?.cumulativeDiscrepancy?.roots ?? 0;
+
+  const userStalkDiscrepancy = userBdvDiscrepancy * Math.pow(10, 4); // 6 -> 10 decimals
+
+  const userRootDiscrepancy =
+      (await bs.s.s.roots - cumulativeRootDiscrepancy) * BigNumber.from(userStalkDiscrepancy)
+      / (await bs.s.s.stalk - BigNumber.from(cumulativeStalkDiscrepancy));
+
+  // Verify that this would not result in the user having negative roots
+  const userCurrentRoots = await bs.s.a[userAccount].roots;
+  if (userRootDiscrepancy > userCurrentRoots) {
+    userRootDiscrepancy = userCurrentRoots;
+  }
+
+  results.push({
+    account: userAccount,
+    accountDiscrepancy: {
+      depositedBean: userBdvDiscrepancy,
+      depositedBdv: userBdvDiscrepancy,
+      stalk: userStalkDiscrepancy,
+      roots: userRootDiscrepancy
+    },
+    cumulativeDiscrepancy: {
+      depositedBean: cumulativeBdvDiscrepancy + userBdvDiscrepancy,
+      depositedBdv: cumulativeBdvDiscrepancy + userBdvDiscrepancy,
+      stalk: cumulativeStalkDiscrepancy + userStalkDiscrepancy,
+      roots: cumulativeRootDiscrepancy + userRootDiscrepancy
+    },
+    block,
+    txHash: transactions[0].hash
+  });
+}
+
 // For filling results from a known set of blocks having the issue.
 // Includes a check for verifying that no blocks were missed in between.
 async function prefillKnownResults(results, knownBlocks) {
 
   let lastDiff = 0;
-  for (const b of knownBlocks) {
+  for (let i = 0; i < knownBlocks.length; ++i) {
+    const b = knownBlocks[i];
     // Verify the set of known blocks is complete by checking the prior block for equality
     const prevBlockDiff = await depsositedIncludingGerminating(b - 1);
     if (prevBlockDiff !== lastDiff) {
@@ -56,16 +121,15 @@ async function prefillKnownResults(results, knownBlocks) {
     if (lastDiff === newDiff) {
       throw new Error(`There was no difference encountered in saved block ${b}`)
     }
-    const userDiscrepancy = newDiff - lastDiff;
-    // console.log(`block: ${b}, error: ${userDiscrepancy}`);
+    const userBdvDiscrepancy = newDiff - lastDiff;
+    // console.log(`block: ${b}, error: ${userBdvDiscrepancy}`);
     lastDiff = newDiff;
 
-    results.push({
-      block: b,
-      userDiscrepancy,
-      cumulativeDiscrepancy: newDiff
-    });
+    // Add to the results list
+    await appendResults(results, b, userBdvDiscrepancy);
+    console.log(`${i + 1} / 35`);
   }
+  
   return lastDiff;
 }
 
@@ -82,12 +146,11 @@ async function fillResults(results, lastDiff, startBlock, endBlock) {
         continue;
       }
       canSkip100 = true;
+      const userBdvDiscrepancy = newDiff - lastDiff;
       console.log('found discrepancy for block', i, newDiff - lastDiff);
       lastDiff = newDiff;
       
-      results.push({
-        block: i
-      });
+      appendResults(results, i, userBdvDiscrepancy);
     }
     if (i % 100 == 0) {
       console.log(i);
@@ -114,46 +177,25 @@ async function fillResults(results, lastDiff, startBlock, endBlock) {
   console.log('Identifying affected blocks and amounts...');
   let lastDiff = await prefillKnownResults(results, known);
 
-  // This part is a noop since all have been identified.
-  await fillResults(results, lastDiff, known[known.length - 1] + 1, 20000923);
+  // This part is not necessary since all have been identified through ebip-16
+  // await fillResults(results, lastDiff, known[known.length - 1] + 1, 20000923);
 
-  console.log('Identifying transactions and accounts...');
   let affectedAccounts = [];
 
-  const provider = await providerThenable;
-  const withTxData = await Promise.all(results.map(async issue => {
-    const blockData = await provider.getBlockWithTransactions(issue.block);
-    const transactions = blockData.transactions.filter(tx => tx.to && tx.to.toLowerCase() === BEANSTALK.toLowerCase()
-        // These two txns occurred on the same block as some of the discrepancy txns.
-        // Manually omitted from the result for simplicity. The first is a deposit, the second is a sunrise.
-        && tx.hash !== '0x03f0efe504486671a0583ac0bf96ebe593cd92eec4fac71fb6a12a3e58c20672'
-        && tx.hash !== '0xb994038d84894c297a33df433d92799ff45012d1d3e08d402aa9b3e6fb96478b');
-    
-    if (transactions.length !== 1) {
-      throw new Error(`There is a missing or an extra transaction at block ${issue.block}, ${transactions.length}`);
+  // Count the affected accounts
+  for (const result of results) {
+    if (!affectedAccounts.includes(result.account)) {
+      affectedAccounts.push(result.account);
     }
-    if (!affectedAccounts.includes(transactions[0].from.toLowerCase())) {
-      affectedAccounts.push(transactions[0].from.toLowerCase());
-    }
-
-    return {
-      ...issue,
-      txHash: transactions[0].hash,
-      account: transactions[0].from.toLowerCase()
-    };
-  }));
-
-  // Sort block ascending
-  withTxData.sort((a, b) => a.block - b.block);
+  }
 
   console.log(`-----------------------------------------------`);
   console.log(`Total depositedAmount discrepancy: ${lastDiff}`);
-  console.log(`Total erroneous transactions: ${withTxData.length}`);
+  console.log(`Total erroneous transactions: ${results.length}`);
   console.log(`Total affected accounts: ${affectedAccounts.length}`);
   console.log(`-----------------------------------------------`);
   console.log(`Results outputted to results/ebip-17.json`);
   
-
-  await fs.promises.writeFile('results/ebip-17.json', JSON.stringify(withTxData, null, 2));
+  await fs.promises.writeFile('results/ebip-17.json', JSON.stringify(results, null, 2));
 
 })();
