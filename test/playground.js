@@ -9,12 +9,12 @@ const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
 const storageLayoutPreReplant = require('../src/contracts/beanstalk/storageLayout-PreReplant.json');
 const { assertNonzero, assertTrue } = require('./assert-simple.js');
 const { beanstalkSG, beanSG, beanTestSG, gql } = require('../src/datasources/subgraph/subgraph-query.js')
-const { getAllPegCrossBlocks } = require('../src/data/peg-crosses.js')
+const { getAllPegCrossBlocks } = require('../src/external-use/peg-crosses.js')
 
 const beanstalkInitAbi = require('../src/contracts/beanstalk/Beanstalk-Init.json');
 const calculationsCurveAbi = require('../src/contracts/curve/CalculationsCurve.json');
-const { identifyContracts } = require('../src/data/participant-contracts.js');
-const { participantAddresses } = require('../src/data/raw/participant-addresses.js');
+const { identifyContracts } = require('../src/external-use/participant-contracts.js');
+const { participantAddresses } = require('../src/external-use/data/participant-addresses.js');
 
 async function logTestInfo() {
     // recent mints started: 18963933
@@ -389,6 +389,7 @@ async function storageTest() {
     // sg 4356360513466
     // ct 4355696876590
 
+    ///// TODO: generalize this snippet as a generalized binary search on an arbitrary function
     // let top = 20000000;
     // let bottom = 19937474;
     // let middle;
@@ -404,91 +405,14 @@ async function storageTest() {
     //     }
     //     u();
     // }
+    /////
 
     // const search = await depsositedIncludingGerminating(19941969);
     // asyncBeanstalkContractGetter().then(b => b.callStatic.stemTipForToken(BEAN, {blockTag: 19941969})).then(console.log);
 
-    ///// EBIP16 data
-    // const known = [19941969, 19942000, 19942640, 19943955, 19944606, 19944956, 19946180, 19946460, 19946615, 19947349,
-    //     19953632, 19956101, 19956694, 19957438, 19957455, 19957739, 19962793, 19962879, 19963829, 19964305, 19966550,
-    //     19967148, 19968983, 19969909
-    // ];
-    // let lastDiff = 0;
-    // for (const b of known) {
-    //     const newDiff = await depsositedIncludingGerminating(b);
-    //     if (lastDiff != newDiff) {
-    //         console.log('found discrepancy for block', b, newDiff - lastDiff);
-    //         lastDiff = newDiff;
-    //     }
-    //     const provider = await providerThenable;
-    //     const blockData = await provider.getBlockWithTransactions(b);
-        
-    //     // Filter transactions that interact with the contract address
-    //     const transactions = blockData.transactions.filter(tx => tx.to && tx.to.toLowerCase() === BEANSTALK.toLowerCase());
-    //     console.log(`https://etherscan.io/tx/${transactions[0].hash}`);
-    // }
-
-    // let canSkip100 = true;
-    // for (let i = 19962793; ;) {
-    //     const newDiff = await depsositedIncludingGerminating(i);
-    //     if (lastDiff != newDiff) {
-    //         if (canSkip100) {
-    //             canSkip100 = false;
-    //             i -= 100;
-    //             continue;
-    //         }
-    //         canSkip100 = true;
-    //         console.log('found discrepancy for block', i, newDiff - lastDiff);
-    //         lastDiff = newDiff;
-    //     }
-    //     if (i % 100 == 0) {
-    //         console.log(i);
-    //     }
-
-    //     if (canSkip100) {
-    //         i += 100;
-    //     } else {
-    //         ++i;
-    //     }
-    // }
-    ///// end EBIP16
-
-    console.log(await identifyContracts(participantAddresses));
+    // console.log(await identifyContracts(participantAddresses));
     
 })();
-
-async function depsositedIncludingGerminating(block) {
-    const beanstalk = await asyncBeanstalkContractGetter();
-    const deposited = await beanstalk.callStatic.getTotalDeposited(BEAN, { blockTag: block });
-    const germinating = await beanstalk.callStatic.getGerminatingTotalDeposited(BEAN, { blockTag: block });
-    const contractResult = deposited.add(germinating);
-    
-    const sgResult = await beanstalkSG(gql`
-        {
-            siloAsset(
-                id: "0xc1e088fc1323b20bcbee9bd1b9fc9546db5624c5-0xbea0000029ad1c77d3d5d23ba2d8893db9d1efab"
-                block: {number: ${block}}
-            ) {
-                depositedAmount
-            }
-        }
-    `);
-
-    const contractNum = contractResult.toNumber();
-    const sgNum = parseInt(sgResult.siloAsset.depositedAmount);
-
-    return contractNum - sgNum;
-
-    // if (contractNum != sgNum) {
-    //     console.log('contract: ', contractNum);
-    //     console.log(germinating.toNumber());
-    //     console.log('subgraph: ', sgNum);
-    //     console.log('difference: ', contractNum - sgNum);
-    //     return -1;
-    // } else {
-    //     return 1;
-    // }
-}
 
 async function beanEthPreReplant(block) {
     const wethusdcuniv2 = await asyncUniswapV2ContractGetter("0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc");
