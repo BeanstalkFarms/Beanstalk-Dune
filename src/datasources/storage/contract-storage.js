@@ -36,6 +36,9 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     // Struct
                     const members = transformMembersList(currentType.members);
                     const field = members[property];
+                    if (!field) {
+                        throw new Error(`Unrecognized property \`${property}\` on \`${target.currentType_jslib}\`. Please check the supplied storageLayout file.`);
+                    }
                     returnProxy = new Proxy(copy(types[field.type]), handler);
                     returnProxy.storageSlot_jslib = target.storageSlot_jslib.add(parseInt(field.slot));
                     returnProxy.currentType_jslib = field.type;

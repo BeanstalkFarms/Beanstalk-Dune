@@ -15,6 +15,7 @@ const beanstalkInitAbi = require('../src/contracts/beanstalk/Beanstalk-Init.json
 const calculationsCurveAbi = require('../src/contracts/curve/CalculationsCurve.json');
 const { identifyContracts } = require('../src/external-use/participant-contracts.js');
 const { participantAddresses } = require('../src/external-use/data/participant-addresses.js');
+const { binarySearch } = require('../src/utils/binary-search.js');
 
 async function logTestInfo() {
     // recent mints started: 18963933
@@ -388,6 +389,27 @@ async function storageTest() {
     // EBIP 19937474
     // sg 4356360513466
     // ct 4355696876590
+
+    // const searchResult = await binarySearch(
+    //     19000000,
+    //     20034538,
+    //     async (block) => {
+    //         const sgResult = await beanstalkSG(gql`
+    //             {
+    //                 germinating(
+    //                     block: {number: ${block}}
+    //                     id: "0x047b22bfe547d29843c825dbcbd9e0168649d631-ODD"
+    //                 ) {
+    //                     id
+    //                 }
+    //             }`
+    //         );
+    //         // Looking for when it got created
+    //         return sgResult.germinating === null ? 1 : -1;
+    //     },
+    //     console.log
+    // );
+    // console.log(`found at ${searchResult.location}`)
 
     ///// TODO: generalize this snippet as a generalized binary search on an arbitrary function
     // let top = 20000000;
