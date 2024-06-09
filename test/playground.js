@@ -411,6 +411,13 @@ async function storageTest() {
     // );
     // console.log(`found at ${searchResult.location}`)
 
+    console.log(await bs[100001].s.s.stalk);
+    console.log(await bs.s.s.stalk);
+    // bs.__setDefaultBlock(19000000);
+    console.log(await bs[100001].s.s.stalk);
+    console.log(await bs.s.s.stalk);
+    console.log(await bs[100001].s.s.stalk);
+
     ///// TODO: generalize this snippet as a generalized binary search on an arbitrary function
     // let top = 20000000;
     // let bottom = 19937474;

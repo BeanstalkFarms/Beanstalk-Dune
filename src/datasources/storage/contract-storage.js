@@ -160,15 +160,46 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
 
 class ContractStorage {
 
-    constructor(provider, contractAddress, storageLayout, blockNumber = 'latest') {
+    constructor(provider, contractAddress, storageLayout, defaultBlock = 'latest') {
+    
+        this.__storageLayout = storageLayout;
+        this.__defaultBlock = defaultBlock;
 
-        const proxyHandler = makeProxyHandler(provider, contractAddress, storageLayout.types, blockNumber)
-        // Initialize all top level storage fields
-        for (const field of storageLayout.storage) {
-            this[field.label] = new Proxy(field, proxyHandler);
-            this[field.label].__storageSlot = BigNumber.from(0);
-            this[field.label].__currentType = field.type;
-        }
+        // Create top level proxy with recreatable subproxies, necessary for isolated state
+        const initProxyHandler = {
+            get: (target, property) => {
+                if (['__setDefaultBlock'].includes(property)) {
+                    return target[property];
+                }
+                
+                if (!target.__block) {
+                    // A block has not been selected yet
+                    const isLeadingNumeric = property.charCodeAt(0) >= 48 && property.charCodeAt(0) <= 57;
+                    if (isLeadingNumeric) {
+                        // Need to receive an additional property
+                        return new Proxy({ __block: parseInt(property) }, initProxyHandler);
+                    }
+                }
+
+                const block = target.__block ?? this.__defaultBlock;
+                // Initialize all top level storage fields
+                const fieldProxyHandler = makeProxyHandler(provider, contractAddress, this.__storageLayout.types, block);
+                const requestedField = storageLayout.storage.filter(f => f.label === property);
+                if (requestedField.length !== 1) {
+                    throw new Error(`Unrecognized top-level property \`${property}\`. Please check the supplied storageLayout file.`);
+                }
+
+                const returnProxy = new Proxy(requestedField[0], fieldProxyHandler);
+                returnProxy.__storageSlot = BigNumber.from(0);
+                returnProxy.__currentType = requestedField[0].type;
+                return returnProxy;
+            }
+        };
+        return new Proxy(this, initProxyHandler);
+    }
+
+    __setDefaultBlock(newDefault) {
+        this.__defaultBlock = newDefault;
     }
 }
 
