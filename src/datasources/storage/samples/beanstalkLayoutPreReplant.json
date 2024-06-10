@@ -1,0 +1,1439 @@
+{
+  "storage": [
+    {
+      "astId": 39,
+      "contract": "contracts/1_Storage.sol:Account",
+      "label": "s",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_struct(AppStorage)394_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_bytes4)dyn_storage": {
+      "base": "t_bytes4",
+      "encoding": "dynamic_array",
+      "label": "bytes4[]",
+      "numberOfBytes": "32"
+    },
+    "t_array(t_int8)32_storage": {
+      "base": "t_int8",
+      "encoding": "inplace",
+      "label": "int8[32]",
+      "numberOfBytes": "32"
+    },
+    "t_array(t_struct(FacetCut)13_storage)dyn_storage": {
+      "base": "t_struct(FacetCut)13_storage",
+      "encoding": "dynamic_array",
+      "label": "struct IDiamondCut.FacetCut[]",
+      "numberOfBytes": "32"
+    },
+    "t_array(t_uint32)dyn_storage": {
+      "base": "t_uint32",
+      "encoding": "dynamic_array",
+      "label": "uint32[]",
+      "numberOfBytes": "32"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_bytes4": {
+      "encoding": "inplace",
+      "label": "bytes4",
+      "numberOfBytes": "4"
+    },
+    "t_bytes_storage": {
+      "encoding": "bytes",
+      "label": "bytes",
+      "numberOfBytes": "32"
+    },
+    "t_enum(FacetCutAction)4": {
+      "encoding": "inplace",
+      "label": "enum IDiamondCut.FacetCutAction",
+      "numberOfBytes": "1"
+    },
+    "t_int256": {
+      "encoding": "inplace",
+      "label": "int256",
+      "numberOfBytes": "32"
+    },
+    "t_int8": {
+      "encoding": "inplace",
+      "label": "int8",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_bool)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bool)",
+      "numberOfBytes": "32",
+      "value": "t_bool"
+    },
+    "t_mapping(t_address,t_mapping(t_uint32,t_struct(Deposit)66_storage))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(uint32 => struct Account.Deposit))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint32,t_struct(Deposit)66_storage)"
+    },
+    "t_mapping(t_address,t_mapping(t_uint32,t_uint256))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(uint32 => uint256))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint32,t_uint256)"
+    },
+    "t_mapping(t_address,t_struct(AssetSilo)195_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => struct Storage.AssetSilo)",
+      "numberOfBytes": "32",
+      "value": "t_struct(AssetSilo)195_storage"
+    },
+    "t_mapping(t_address,t_struct(SiloSettings)289_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => struct Storage.SiloSettings)",
+      "numberOfBytes": "32",
+      "value": "t_struct(SiloSettings)289_storage"
+    },
+    "t_mapping(t_address,t_struct(State)123_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => struct Account.State)",
+      "numberOfBytes": "32",
+      "value": "t_struct(State)123_storage"
+    },
+    "t_mapping(t_address,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_bytes32,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint256,t_bytes32)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => bytes32)",
+      "numberOfBytes": "32",
+      "value": "t_bytes32"
+    },
+    "t_mapping(t_uint256,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_mapping(t_uint32,t_mapping(t_address,t_bool))": {
+      "encoding": "mapping",
+      "key": "t_uint32",
+      "label": "mapping(uint32 => mapping(address => bool))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_address,t_bool)"
+    },
+    "t_mapping(t_uint32,t_struct(Bip)159_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint32",
+      "label": "mapping(uint32 => struct Storage.Bip)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Bip)159_storage"
+    },
+    "t_mapping(t_uint32,t_struct(Deposit)66_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint32",
+      "label": "mapping(uint32 => struct Account.Deposit)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Deposit)66_storage"
+    },
+    "t_mapping(t_uint32,t_struct(DiamondCut)168_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint32",
+      "label": "mapping(uint32 => struct Storage.DiamondCut)",
+      "numberOfBytes": "32",
+      "value": "t_struct(DiamondCut)168_storage"
+    },
+    "t_mapping(t_uint32,t_struct(Fundraiser)282_storage)": {
+      "encoding": "mapping",
+      "key": "t_uint32",
+      "label": "mapping(uint32 => struct Storage.Fundraiser)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Fundraiser)282_storage"
+    },
+    "t_mapping(t_uint32,t_uint256)": {
+      "encoding": "mapping",
+      "key": "t_uint32",
+      "label": "mapping(uint32 => uint256)",
+      "numberOfBytes": "32",
+      "value": "t_uint256"
+    },
+    "t_struct(AppStorage)394_storage": {
+      "encoding": "inplace",
+      "label": "struct AppStorage",
+      "members": [
+        {
+          "astId": 292,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "index",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint8"
+        },
+        {
+          "astId": 296,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "cases",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_array(t_int8)32_storage"
+        },
+        {
+          "astId": 298,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "paused",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_bool"
+        },
+        {
+          "astId": 300,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pausedAt",
+          "offset": 1,
+          "slot": "2",
+          "type": "t_uint128"
+        },
+        {
+          "astId": 303,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "season",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_struct(Season)254_storage"
+        },
+        {
+          "astId": 306,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "c",
+          "offset": 0,
+          "slot": "7",
+          "type": "t_struct(Contracts)133_storage"
+        },
+        {
+          "astId": 309,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "f",
+          "offset": 0,
+          "slot": "11",
+          "type": "t_struct(Field)142_storage"
+        },
+        {
+          "astId": 312,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "g",
+          "offset": 0,
+          "slot": "15",
+          "type": "t_struct(Governance)190_storage"
+        },
+        {
+          "astId": 315,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "o",
+          "offset": 0,
+          "slot": "20",
+          "type": "t_struct(Oracle)232_storage"
+        },
+        {
+          "astId": 318,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "r",
+          "offset": 0,
+          "slot": "24",
+          "type": "t_struct(Rain)241_storage"
+        },
+        {
+          "astId": 321,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "s",
+          "offset": 0,
+          "slot": "27",
+          "type": "t_struct(Silo)221_storage"
+        },
+        {
+          "astId": 323,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "reentrantStatus",
+          "offset": 0,
+          "slot": "30",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 326,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "w",
+          "offset": 0,
+          "slot": "31",
+          "type": "t_struct(Weather)271_storage"
+        },
+        {
+          "astId": 329,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "bean",
+          "offset": 0,
+          "slot": "34",
+          "type": "t_struct(AssetSilo)195_storage"
+        },
+        {
+          "astId": 332,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lp",
+          "offset": 0,
+          "slot": "36",
+          "type": "t_struct(AssetSilo)195_storage"
+        },
+        {
+          "astId": 335,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "si",
+          "offset": 0,
+          "slot": "38",
+          "type": "t_struct(IncreaseSilo)200_storage"
+        },
+        {
+          "astId": 338,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "sop",
+          "offset": 0,
+          "slot": "40",
+          "type": "t_struct(SeasonOfPlenty)214_storage"
+        },
+        {
+          "astId": 341,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "v1SI",
+          "offset": 0,
+          "slot": "43",
+          "type": "t_struct(V1IncreaseSilo)207_storage"
+        },
+        {
+          "astId": 343,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "unclaimedRoots",
+          "offset": 0,
+          "slot": "46",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 345,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "v2SIBeans",
+          "offset": 0,
+          "slot": "47",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 349,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "sops",
+          "offset": 0,
+          "slot": "48",
+          "type": "t_mapping(t_uint32,t_uint256)"
+        },
+        {
+          "astId": 354,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "a",
+          "offset": 0,
+          "slot": "49",
+          "type": "t_mapping(t_address,t_struct(State)123_storage)"
+        },
+        {
+          "astId": 356,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "bip0Start",
+          "offset": 0,
+          "slot": "50",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 358,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "hotFix3Start",
+          "offset": 4,
+          "slot": "50",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 363,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "fundraisers",
+          "offset": 0,
+          "slot": "51",
+          "type": "t_mapping(t_uint32,t_struct(Fundraiser)282_storage)"
+        },
+        {
+          "astId": 365,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "fundraiserIndex",
+          "offset": 0,
+          "slot": "52",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 369,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "isBudget",
+          "offset": 0,
+          "slot": "53",
+          "type": "t_mapping(t_address,t_bool)"
+        },
+        {
+          "astId": 373,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "podListings",
+          "offset": 0,
+          "slot": "54",
+          "type": "t_mapping(t_uint256,t_bytes32)"
+        },
+        {
+          "astId": 377,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "podOrders",
+          "offset": 0,
+          "slot": "55",
+          "type": "t_mapping(t_bytes32,t_uint256)"
+        },
+        {
+          "astId": 382,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "siloBalances",
+          "offset": 0,
+          "slot": "56",
+          "type": "t_mapping(t_address,t_struct(AssetSilo)195_storage)"
+        },
+        {
+          "astId": 387,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "ss",
+          "offset": 0,
+          "slot": "57",
+          "type": "t_mapping(t_address,t_struct(SiloSettings)289_storage)"
+        },
+        {
+          "astId": 389,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "refundStatus",
+          "offset": 0,
+          "slot": "58",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 391,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "beanRefundAmount",
+          "offset": 0,
+          "slot": "59",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 393,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "ethRefundAmount",
+          "offset": 0,
+          "slot": "60",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "1952"
+    },
+    "t_struct(AssetSilo)195_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.AssetSilo",
+      "members": [
+        {
+          "astId": 192,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "deposited",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 194,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "withdrawn",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "64"
+    },
+    "t_struct(AssetSilo)61_storage": {
+      "encoding": "inplace",
+      "label": "struct Account.AssetSilo",
+      "members": [
+        {
+          "astId": 52,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "withdrawals",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_mapping(t_uint32,t_uint256)"
+        },
+        {
+          "astId": 56,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "deposits",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_mapping(t_uint32,t_uint256)"
+        },
+        {
+          "astId": 60,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "depositSeeds",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_mapping(t_uint32,t_uint256)"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_struct(Bip)159_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Bip",
+      "members": [
+        {
+          "astId": 144,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "proposer",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 146,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "start",
+          "offset": 20,
+          "slot": "0",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 148,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "period",
+          "offset": 24,
+          "slot": "0",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 150,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "executed",
+          "offset": 28,
+          "slot": "0",
+          "type": "t_bool"
+        },
+        {
+          "astId": 152,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pauseOrUnpause",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_int256"
+        },
+        {
+          "astId": 154,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "timestamp",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint128"
+        },
+        {
+          "astId": 156,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "roots",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 158,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "endTotalRoots",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "160"
+    },
+    "t_struct(Contracts)133_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Contracts",
+      "members": [
+        {
+          "astId": 126,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "bean",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 128,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pair",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 130,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pegPair",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 132,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "weth",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_address"
+        }
+      ],
+      "numberOfBytes": "128"
+    },
+    "t_struct(Deposit)66_storage": {
+      "encoding": "inplace",
+      "label": "struct Account.Deposit",
+      "members": [
+        {
+          "astId": 63,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "amount",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint128"
+        },
+        {
+          "astId": 65,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "bdv",
+          "offset": 16,
+          "slot": "0",
+          "type": "t_uint128"
+        }
+      ],
+      "numberOfBytes": "32"
+    },
+    "t_struct(DiamondCut)168_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.DiamondCut",
+      "members": [
+        {
+          "astId": 163,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "diamondCut",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_array(t_struct(FacetCut)13_storage)dyn_storage"
+        },
+        {
+          "astId": 165,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "initAddress",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 167,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "initData",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_bytes_storage"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_struct(FacetCut)13_storage": {
+      "encoding": "inplace",
+      "label": "struct IDiamondCut.FacetCut",
+      "members": [
+        {
+          "astId": 6,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "facetAddress",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 9,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "action",
+          "offset": 20,
+          "slot": "0",
+          "type": "t_enum(FacetCutAction)4"
+        },
+        {
+          "astId": 12,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "functionSelectors",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_array(t_bytes4)dyn_storage"
+        }
+      ],
+      "numberOfBytes": "64"
+    },
+    "t_struct(Field)142_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Field",
+      "members": [
+        {
+          "astId": 135,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "soil",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 137,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pods",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 139,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "harvested",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 141,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "harvestable",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "128"
+    },
+    "t_struct(Field)48_storage": {
+      "encoding": "inplace",
+      "label": "struct Account.Field",
+      "members": [
+        {
+          "astId": 43,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "plots",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_mapping(t_uint256,t_uint256)"
+        },
+        {
+          "astId": 47,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "podAllowances",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_mapping(t_address,t_uint256)"
+        }
+      ],
+      "numberOfBytes": "64"
+    },
+    "t_struct(Fundraiser)282_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Fundraiser",
+      "members": [
+        {
+          "astId": 273,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "payee",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 275,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "token",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 277,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "total",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 279,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "remaining",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 281,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "start",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "160"
+    },
+    "t_struct(Governance)190_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Governance",
+      "members": [
+        {
+          "astId": 171,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "activeBips",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_array(t_uint32)dyn_storage"
+        },
+        {
+          "astId": 173,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "bipIndex",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 178,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "diamondCuts",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_mapping(t_uint32,t_struct(DiamondCut)168_storage)"
+        },
+        {
+          "astId": 184,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "voted",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_mapping(t_uint32,t_mapping(t_address,t_bool))"
+        },
+        {
+          "astId": 189,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "bips",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_mapping(t_uint32,t_struct(Bip)159_storage)"
+        }
+      ],
+      "numberOfBytes": "160"
+    },
+    "t_struct(IncreaseSilo)200_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.IncreaseSilo",
+      "members": [
+        {
+          "astId": 197,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "beans",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 199,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "stalk",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "64"
+    },
+    "t_struct(Oracle)232_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Oracle",
+      "members": [
+        {
+          "astId": 223,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "initialized",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_bool"
+        },
+        {
+          "astId": 225,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "cumulative",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 227,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pegCumulative",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 229,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "timestamp",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 231,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pegTimestamp",
+          "offset": 4,
+          "slot": "3",
+          "type": "t_uint32"
+        }
+      ],
+      "numberOfBytes": "128"
+    },
+    "t_struct(Rain)241_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Rain",
+      "members": [
+        {
+          "astId": 234,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "start",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 236,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "raining",
+          "offset": 4,
+          "slot": "0",
+          "type": "t_bool"
+        },
+        {
+          "astId": 238,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "pods",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 240,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "roots",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_struct(Season)254_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Season",
+      "members": [
+        {
+          "astId": 243,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "current",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 245,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "sis",
+          "offset": 4,
+          "slot": "0",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 247,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "withdrawSeasons",
+          "offset": 8,
+          "slot": "0",
+          "type": "t_uint8"
+        },
+        {
+          "astId": 249,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "start",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 251,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "period",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 253,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "timestamp",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "128"
+    },
+    "t_struct(SeasonOfPlenty)214_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.SeasonOfPlenty",
+      "members": [
+        {
+          "astId": 209,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "weth",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 211,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "base",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 213,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "last",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint32"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_struct(SeasonOfPlenty)78_storage": {
+      "encoding": "inplace",
+      "label": "struct Account.SeasonOfPlenty",
+      "members": [
+        {
+          "astId": 73,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "base",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 75,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "roots",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 77,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "basePerRoot",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_struct(Silo)221_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Silo",
+      "members": [
+        {
+          "astId": 216,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "stalk",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 218,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "seeds",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 220,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "roots",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_struct(Silo)71_storage": {
+      "encoding": "inplace",
+      "label": "struct Account.Silo",
+      "members": [
+        {
+          "astId": 68,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "stalk",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 70,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "seeds",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "64"
+    },
+    "t_struct(SiloSettings)289_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.SiloSettings",
+      "members": [
+        {
+          "astId": 284,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "selector",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_bytes4"
+        },
+        {
+          "astId": 286,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "seeds",
+          "offset": 4,
+          "slot": "0",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 288,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "stalk",
+          "offset": 8,
+          "slot": "0",
+          "type": "t_uint32"
+        }
+      ],
+      "numberOfBytes": "32"
+    },
+    "t_struct(State)123_storage": {
+      "encoding": "inplace",
+      "label": "struct Account.State",
+      "members": [
+        {
+          "astId": 81,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "field",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_struct(Field)48_storage"
+        },
+        {
+          "astId": 84,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "bean",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_struct(AssetSilo)61_storage"
+        },
+        {
+          "astId": 87,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lp",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_struct(AssetSilo)61_storage"
+        },
+        {
+          "astId": 90,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "s",
+          "offset": 0,
+          "slot": "8",
+          "type": "t_struct(Silo)71_storage"
+        },
+        {
+          "astId": 92,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "votedUntil",
+          "offset": 0,
+          "slot": "10",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 94,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lastUpdate",
+          "offset": 4,
+          "slot": "10",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 96,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lastSop",
+          "offset": 8,
+          "slot": "10",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 98,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lastRain",
+          "offset": 12,
+          "slot": "10",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 100,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lastSIs",
+          "offset": 16,
+          "slot": "10",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 102,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "proposedUntil",
+          "offset": 20,
+          "slot": "10",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 105,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "sop",
+          "offset": 0,
+          "slot": "11",
+          "type": "t_struct(SeasonOfPlenty)78_storage"
+        },
+        {
+          "astId": 107,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "roots",
+          "offset": 0,
+          "slot": "14",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 109,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "wrappedBeans",
+          "offset": 0,
+          "slot": "15",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 116,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "deposits",
+          "offset": 0,
+          "slot": "16",
+          "type": "t_mapping(t_address,t_mapping(t_uint32,t_struct(Deposit)66_storage))"
+        },
+        {
+          "astId": 122,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "withdrawals",
+          "offset": 0,
+          "slot": "17",
+          "type": "t_mapping(t_address,t_mapping(t_uint32,t_uint256))"
+        }
+      ],
+      "numberOfBytes": "576"
+    },
+    "t_struct(V1IncreaseSilo)207_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.V1IncreaseSilo",
+      "members": [
+        {
+          "astId": 202,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "beans",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 204,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "stalk",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 206,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "roots",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint256"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_struct(Weather)271_storage": {
+      "encoding": "inplace",
+      "label": "struct Storage.Weather",
+      "members": [
+        {
+          "astId": 256,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "startSoil",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 258,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lastDSoil",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_uint256"
+        },
+        {
+          "astId": 260,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lastSoilPercent",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_uint96"
+        },
+        {
+          "astId": 262,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "lastSowTime",
+          "offset": 12,
+          "slot": "2",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 264,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "nextSowTime",
+          "offset": 16,
+          "slot": "2",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 266,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "yield",
+          "offset": 20,
+          "slot": "2",
+          "type": "t_uint32"
+        },
+        {
+          "astId": 268,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "didSowBelowMin",
+          "offset": 24,
+          "slot": "2",
+          "type": "t_bool"
+        },
+        {
+          "astId": 270,
+          "contract": "contracts/1_Storage.sol:Account",
+          "label": "didSowFaster",
+          "offset": 25,
+          "slot": "2",
+          "type": "t_bool"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_uint128": {
+      "encoding": "inplace",
+      "label": "uint128",
+      "numberOfBytes": "16"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint32": {
+      "encoding": "inplace",
+      "label": "uint32",
+      "numberOfBytes": "4"
+    },
+    "t_uint8": {
+      "encoding": "inplace",
+      "label": "uint8",
+      "numberOfBytes": "1"
+    },
+    "t_uint96": {
+      "encoding": "inplace",
+      "label": "uint96",
+      "numberOfBytes": "12"
+    }
+  }
+}

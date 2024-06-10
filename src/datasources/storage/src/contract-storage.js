@@ -158,8 +158,17 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
     return handler;
 }
 
+// See README.md for detailed instructions
 class ContractStorage {
 
+    /**
+     * 
+     * @param provider - an ethersjs provider, or anything having a `.getStorageAt(address, slot)` function.
+     * @param contractAddress - the address of the contract that you desire to retrieve storage for
+     * @param storageLayout - the storage layout mapping for your contract.
+     * @param defaultBlock - the default block number to use for storage lookup.
+     * @returns 
+     */
     constructor(provider, contractAddress, storageLayout, defaultBlock = 'latest') {
     
         this.__storageLayout = storageLayout;

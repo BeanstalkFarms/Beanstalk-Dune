@@ -1,7 +1,7 @@
-const { providerThenable } = require("../../provider");
-const { BEANSTALK, BEAN, UNRIPE_BEAN, UNRIPE_LP } = require('../../addresses.js');
-const storageLayout = require('../../contracts/beanstalk/storageLayout.json');
-const ContractStorage = require("./contract-storage");
+const { providerThenable } = require("../../../provider.js");
+const { BEANSTALK, BEAN, UNRIPE_BEAN, UNRIPE_LP } = require('../../../addresses.js');
+const storageLayout = require('../samples/beanstalkStorageBIP47.json');
+const ContractStorage = require("../src/contract-storage.js");
 
 (async function storageTest() {
     
@@ -31,11 +31,11 @@ const ContractStorage = require("./contract-storage");
   const internalBeans = await beanstalk.s.internalTokenBalance[internalBalanceHolder][BEAN];
   console.log('internal balance:', internalBeans);
 
-  const case1 = await beanstalk.s.cases[1]; // expect 0x01
+  const case1 = await beanstalk.s.deprecated_cases[1]; // expect 0x01
   console.log('temp case 1:', case1);
 
   // Fixed - whole array (one slot)
-  const allCases = await beanstalk.s.cases;
+  const allCases = await beanstalk.s.deprecated_cases;
   console.log('all temp cases:', allCases);
 
   // Fixed - whole array (multiple slots)
@@ -62,8 +62,8 @@ const ContractStorage = require("./contract-storage");
   console.log(beanstalk.s.season.timestamp.slot);
   console.log(beanstalk.s.unripeClaimed[UNRIPE_BEAN][unripeHolder].slot);
   console.log(beanstalk.s.deprecated[12].slot);
-
-  console.log(await beanstalk.s.s.stalk);
+  
+  console.log(await beanstalk[19000000].s.s.stalk);
   console.log(await beanstalk[20000000].s.s.stalk);
 
 })();

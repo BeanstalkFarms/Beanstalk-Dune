@@ -5,7 +5,7 @@ const { providerThenable } = require("../provider");
 const fs = require('fs');
 const { BigNumber } = require('alchemy-sdk');
 
-const ContractStorage = require("../datasources/storage/contract-storage");
+const ContractStorage = require("../datasources/storage/src/contract-storage");
 const storageLayout = require('../contracts/beanstalk/storageLayout.json');
 
 // EBIP-17 is necessary to correct the earned beans issue resolved by EBIP-16
@@ -71,17 +71,17 @@ async function appendResults(results, block, userBdvDiscrepancy) {
   const prevResult = results[results.length - 1];
   const cumulativeBdvDiscrepancy = prevResult?.cumulativeDiscrepancy?.depositedBean ?? 0;
   const cumulativeStalkDiscrepancy = prevResult?.cumulativeDiscrepancy?.stalk ?? 0;
-  const cumulativeRootDiscrepancy = prevResult?.cumulativeDiscrepancy?.roots ?? BigNumber.from(0);
+  const cumulativeRootDiscrepancy = prevResult?.cumulativeDiscrepancy?.roots ?? BigInt(0);
 
   const userStalkDiscrepancy = userBdvDiscrepancy * Math.pow(10, 4); // 6 -> 10 decimals
 
   let userRootDiscrepancy =
-      (await bs.s.s.roots).sub(cumulativeRootDiscrepancy).mul(BigNumber.from(userStalkDiscrepancy))
-      .div((await bs.s.s.stalk).sub(BigNumber.from(cumulativeStalkDiscrepancy)));
+      (await bs.s.s.roots - cumulativeRootDiscrepancy) * BigInt(userStalkDiscrepancy)
+      / ((await bs.s.s.stalk - BigInt(cumulativeStalkDiscrepancy)));
 
   // Verify that this would not result in the user having negative roots
   const userCurrentRoots = await bs.s.a[userAccount].roots;
-  if (userRootDiscrepancy.gt(userCurrentRoots)) {
+  if (userRootDiscrepancy > userCurrentRoots) {
     console.log(`User has more roots than calculated ${userRootDiscrepancy} ${userCurrentRoots}`);
     userRootDiscrepancy = userCurrentRoots;
   }
@@ -98,7 +98,7 @@ async function appendResults(results, block, userBdvDiscrepancy) {
       depositedBean: cumulativeBdvDiscrepancy + userBdvDiscrepancy,
       depositedBdv: cumulativeBdvDiscrepancy + userBdvDiscrepancy,
       stalk: cumulativeStalkDiscrepancy + userStalkDiscrepancy,
-      roots: cumulativeRootDiscrepancy.add(userRootDiscrepancy)
+      roots: cumulativeRootDiscrepancy + userRootDiscrepancy
     },
     block,
     txHash: transactions[0].hash
@@ -197,6 +197,11 @@ async function fillResults(results, lastDiff, startBlock, endBlock) {
   console.log(`-----------------------------------------------`);
   console.log(`Results outputted to results/ebip-17.json`);
   
-  await fs.promises.writeFile('results/ebip-17.json', JSON.stringify(results, null, 2));
+  await fs.promises.writeFile(
+    'results/ebip-17.json',
+    JSON.stringify(results, (_, value) => {
+      return typeof value === 'bigint' ? "0x" + value.toString(16) : value;
+    }, 2)
+  );
 
 })();

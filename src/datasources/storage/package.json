@@ -1,10 +1,14 @@
 {
   "name": "@beanstalk/contract-storage",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Retrieves data from arbitrary contract storage variables/mappings etc.",
   "main": "contract-storage.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BeanstalkFarms/Beanstalk-Dune.git"
+  },
   "scripts": {
-    "test": "node ./test.js"
+    "test": "node ./test/test.js"
   },
   "keywords": [
     "ethereum",
@@ -12,7 +16,7 @@
     "ethers"
   ],
   "author": "Soil King",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "ethers": "^6.13.0"
   }
