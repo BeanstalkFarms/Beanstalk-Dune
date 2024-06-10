@@ -1,0 +1,21 @@
+{
+  "name": "@beanstalk/contract-storage",
+  "version": "0.1.0",
+  "description": "Retrieves data from arbitrary contract storage variables/mappings etc.",
+  "main": "contract-storage.js",
+  "scripts": {
+    "test": "node ./test.js"
+  },
+  "keywords": [
+    "ethereum",
+    "evm",
+    "ethers",
+    "alchemy"
+  ],
+  "author": "Soil King",
+  "license": "ISC",
+  "dependencies": {
+    "alchemy-sdk": "^3.3.1",
+    "ethers": "^6.13.0"
+  }
+}
