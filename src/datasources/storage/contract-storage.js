@@ -1,6 +1,5 @@
 const ethers = require('ethers');
 const abiCoder = new ethers.AbiCoder();
-const { BigNumber } = require('alchemy-sdk');
 const { SLOT_SIZE, getStorageBytes, decodeType, slotsForArrayIndex } = require('./utils/solidity-data.js');
 
 function transformMembersList(members) {
@@ -28,7 +27,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
             if (['__storageSlot', '__currentType', 'then'].includes(property)) {
                 return target[property];
             } else {
-                // console.debug(`Current type: ${target.__currentType}\nCurrent slot: ${target.__storageSlot.toHexString()}\nSeeking property: ${property}`)
+                // console.debug(`Current type: ${target.__currentType}\nCurrent slot: ${target.__storageSlot.toString(16)}\nSeeking property: ${property}`)
                 let returnProxy;
                 let slotOffset = 0;
                 const currentType = types[target.__currentType];
@@ -40,7 +39,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                         throw new Error(`Unrecognized property \`${property}\` on \`${target.__currentType}\`. Please check the supplied storageLayout file.`);
                     }
                     returnProxy = new Proxy(copy(types[field.type]), handler);
-                    returnProxy.__storageSlot = target.__storageSlot.add(parseInt(field.slot));
+                    returnProxy.__storageSlot = target.__storageSlot + BigInt(parseInt(field.slot));
                     returnProxy.__currentType = field.type;
                     slotOffset = field.offset;
                 } else if (currentType.hasOwnProperty('value')) {
@@ -48,23 +47,23 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     returnProxy = new Proxy(copy(types[currentType.value]), handler);
                     let keyType = currentType.key.slice(2); // remove the "t_"
                     keyType = keyType.includes('contract') ? 'address' : keyType;
-                    const encoded = abiCoder.encode([keyType, 'uint256'], [property, target.__storageSlot.toHexString()]);
+                    const encoded = abiCoder.encode([keyType, 'uint256'], [property, "0x" + target.__storageSlot.toString(16)]);
                     const keccak = ethers.keccak256(encoded);
-                    returnProxy.__storageSlot = BigNumber.from(keccak);
+                    returnProxy.__storageSlot = BigInt(keccak);
                     returnProxy.__currentType = currentType.value;
                 } else if (currentType.encoding === 'dynamic_array') {
                     // Dynamic array
                     returnProxy = new Proxy(copy(types[currentType.base]), handler);
-                    const encoded = abiCoder.encode(['uint256'], [target.__storageSlot.toHexString()]);
+                    const encoded = abiCoder.encode(['uint256'], ["0x" + target.__storageSlot.toString(16)]);
                     const keccak = ethers.keccak256(encoded);
-                    returnProxy.__storageSlot = BigNumber.from(keccak).add(property);
+                    returnProxy.__storageSlot = BigInt(keccak) + BigInt(property);
                     returnProxy.__currentType = currentType.base;
                 } else if (currentType.label.includes('[')) {
                     // Fixed array
                     const arrayBase = types[currentType.base];
                     const arraySlots = slotsForArrayIndex(parseInt(property), parseInt(arrayBase.numberOfBytes));
                     returnProxy = new Proxy(copy(arrayBase), handler);
-                    returnProxy.__storageSlot = target.__storageSlot.add(arraySlots.slot);
+                    returnProxy.__storageSlot = target.__storageSlot + BigInt(arraySlots.slot);
                     returnProxy.__currentType = currentType.base;
                     slotOffset = arraySlots.slotOffset;
                 }
@@ -85,16 +84,16 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     const maxUsedBytesPerSlot = Math.floor(SLOT_SIZE / bytesPerElement) * bytesPerElement;
                     if (returnType.encoding === 'dynamic_array') {
                         // The array begins at keccak(slot)
-                        const encodedSlot = abiCoder.encode(['uint256'], [returnProxy.__storageSlot.toHexString()]);
+                        const encodedSlot = abiCoder.encode(['uint256'], ["0x" + returnProxy.__storageSlot.toString(16)]);
                         const keccak = ethers.keccak256(encodedSlot);
-                        arrayStart = BigNumber.from(keccak);
+                        arrayStart = BigInt(keccak);
                         // numberOfBytes will be calculated on first call to makeResultThenable.
                     } else {
                         arrayStart = returnProxy.__storageSlot;
                         numberOfBytes = returnType.numberOfBytes;
                     }
                     const makeResultThenable = (data, arrayIndex) => (resolve, reject) => {
-                        const getStorage = () => getStorageAt(arrayStart.add(arrayIndex))
+                        const getStorage = () => getStorageAt(arrayStart + BigInt(arrayIndex))
                                 .then(valueAtSlot => {
                                     const remainingBytes = numberOfBytes - SLOT_SIZE*(arrayIndex);
                                     // Parse only the bytes which are relevant to the contents of the result array
@@ -127,7 +126,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     // There are no further members, therefore this must be the end.
 
                     const returnThenable = (resolve, reject) => {
-                        // console.debug('Retrieving storage slot:', returnProxy.__storageSlot.toHexString());
+                        // console.debug('Retrieving storage slot:', returnProxy.__storageSlot.toString(16));
                         getStorageAt(returnProxy.__storageSlot)
                                 .then(valueAtSlot => {
                                     // console.debug('slot:', valueAtSlot);
@@ -141,14 +140,15 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                     return {
                         slot: returnProxy.__storageSlot,
                         then: returnThenable,
+                        /// EDIT: this is no longer necessary now that BigInt is used instead
                         // Adds a toNumber function onto the return thenable. This allows callers to choose whether
                         // to receive BigNumber or number in a single line without having to wrap the await.
                         // i.e. await beanstalk.s.deprecated[12].toNumber() vs (await beanstalk.s.deprecated[12]).toNumber()
-                        toNumber: () => {
-                            // Compare with promise syntax
-                            // {return new Promise((resolve, reject) => returnThenable.then(bn => resolve(bn.toNumber())))};
-                            return { then: (resolve, reject) => returnThenable((bn) => resolve(bn.toNumber())) }
-                        }
+                        // toNumber: () => {
+                        //     // Compare with promise syntax
+                        //     // {return new Promise((resolve, reject) => returnThenable.then(bn => resolve(bn.toNumber())))};
+                        //     return { then: (resolve, reject) => returnThenable((bn) => resolve(bn.toNumber())) }
+                        // }
                     }
                 }
                 return returnProxy;
@@ -171,7 +171,7 @@ class ContractStorage {
                 if (['__setDefaultBlock'].includes(property)) {
                     return target[property];
                 }
-                
+
                 if (!target.__block) {
                     // A block has not been selected yet
                     const isLeadingNumeric = property.charCodeAt(0) >= 48 && property.charCodeAt(0) <= 57;
@@ -190,7 +190,7 @@ class ContractStorage {
                 }
 
                 const returnProxy = new Proxy(requestedField[0], fieldProxyHandler);
-                returnProxy.__storageSlot = BigNumber.from(0);
+                returnProxy.__storageSlot = BigInt(0);
                 returnProxy.__currentType = requestedField[0].type;
                 return returnProxy;
             }

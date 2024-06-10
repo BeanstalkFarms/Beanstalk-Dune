@@ -9,13 +9,11 @@
   "keywords": [
     "ethereum",
     "evm",
-    "ethers",
-    "alchemy"
+    "ethers"
   ],
   "author": "Soil King",
   "license": "ISC",
   "dependencies": {
-    "alchemy-sdk": "^3.3.1",
     "ethers": "^6.13.0"
   }
 }

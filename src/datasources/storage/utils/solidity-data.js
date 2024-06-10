@@ -1,5 +1,3 @@
-const { BigNumber } = require('alchemy-sdk');
-
 // The size of one storage slot, in bytes
 const SLOT_SIZE = 32;
 
@@ -46,7 +44,7 @@ function decodeTypeLabel(type, typesMapping) {
  * @param {string} arrayType - entry in the types mapping for this array
  * @param {string} dataSlots - array of data contained in potentially multiple contiguous storage slots
  * @param {object} typesMapping - the types mapping from storageLayout file
- * @return {array<BigNumber>} ordered array of BigNumber corresponding to the contents
+ * @return {array<BigInt>} ordered array of BigInt corresponding to the contents
  */
 function decodeArray(arrayType, dataSlots, typesMapping) {
 
@@ -65,9 +63,9 @@ function decodeArray(arrayType, dataSlots, typesMapping) {
 
 function dataToBN(data, isUnsigned, dataSizeBits) {
     if (isUnsigned) {
-        return BigNumber.from("0x" + data);
+        return BigInt("0x" + data);
     } else {
-        return BigNumber.from("0x" + data).fromTwos(dataSizeBits);
+        return fromTwosComplement("0x" + data, dataSizeBits);
     }
 }
 
@@ -98,6 +96,20 @@ function slotsForArrayIndex(arrayIndex, baseElementSize) {
     const elementsPerSlot = Math.floor(SLOT_SIZE / baseElementSize);
     return { slot: Math.floor(arrayIndex / elementsPerSlot), slotOffset: (arrayIndex % elementsPerSlot) * baseElementSize };
 }
+
+function fromTwosComplement(hexString, bitSize) {
+    const data = BigInt(hexString);
+    const mask = BigInt(1) << BigInt(bitSize - 1);
+    const max = (BigInt(1) << BigInt(bitSize)) - BigInt(1);
+    
+    if (data & mask) {
+      // If the number is negative
+      return data - (max + BigInt(1));
+    } else {
+      // If the number is positive
+      return data;
+    }
+  }
 
 module.exports = {
     SLOT_SIZE,
