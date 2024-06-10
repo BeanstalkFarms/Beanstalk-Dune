@@ -10,7 +10,7 @@ A lightweight tool for quickly retrieving arbitrary storage variables. View func
 
 ## Sample Mapping 
 
-In solidity, you might write something like:
+In Solidity, you might write something like:
 
 ```
 uint256 stalk = s.s.stalk;
@@ -40,7 +40,7 @@ const userPlotAmount = await beanstalk.s.a[account].plots[index].amount;
 
 ## Where to get the storageLayout mapping
 
-After compiling a solidity contract, included among the compilation artifacts is a JSON file containing a `storageLayout` property. The location of this file may vary depending on which compiler you are using. Once you have located the output file, find the `storageLayout` property for the desired contract. Copy the value into a JSON file. This file will be read into the program and supplied to the ContractStorage constructor. Some sample `storageLayout` mappings (for Beanstalk) are included in this package, along with the full output file.
+After compiling the Solidity contract you want to analyze, included among the compilation artifacts is a JSON file containing a `storageLayout` property. The location of this file may vary depending on which compiler you are using. Once you have located the output file, find the `storageLayout` property for the desired contract. Copy the value into a JSON file. This file will be read into the program and supplied to the ContractStorage constructor. Some sample `storageLayout` mappings (for Beanstalk) can be found in this repository, but are not included in the published package.
 
 ## Other features
 
