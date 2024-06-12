@@ -6,6 +6,7 @@ const ContractStorage = require('../datasources/storage/src/contract-storage');
 const { providerThenable } = require('../provider');
 const { bigintHex } = require('../utils/json-formatter.js');
 const { absBigInt } = require('../utils/bigint.js');
+const { asyncBeanstalkContractGetter } = require('../datasources/contract-function.js');
 
 function parseLine(deposits, line) {
   const elem = line.split(',');
@@ -64,7 +65,7 @@ async function checkWallets(deposits) {
     }
 
     results[depositor].depositStalk = netDepositorStalk;
-    results[depositor].contractStalk = await bs.s.a[depositor].s.stalk;
+    results[depositor].contractStalk = await getContractStalk(depositor);
     results[depositor].discrepancy = results[depositor].depositStalk - results[depositor].contractStalk;
 
     // console.log(`net deposit stalk for ${depositor}: ${netDepositorStalk}`);
@@ -90,6 +91,25 @@ async function checkWallets(deposits) {
   }, {});
 }
 
+// Since we need to match the stalk + grown stalk by bdv against the contract values, need to include
+// anything that has finished germinating or is still germinating (and this not part of s.a[depositor].s.stalk)
+// NOT including earned beans since we are only trying to verify deposits.
+async function getContractStalk(account) {
+  const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
+  const beanstalk = await asyncBeanstalkContractGetter();
+
+  const [storage, germinating, doneGerminating] = await Promise.all([
+    bs.s.a[account].s.stalk,
+    (async () => {
+      return BigInt(await beanstalk.callStatic.balanceOfGerminatingStalk(account));
+    })(),
+    (async () => {
+      return BigInt((await beanstalk.callStatic.balanceOfFinishedGerminatingStalkAndRoots(account))[0]);
+    })()
+  ]);
+  return storage + germinating + doneGerminating;
+}
+
 (async () => {
 
   // https://dune.com/queries/3819175
@@ -108,9 +128,10 @@ async function checkWallets(deposits) {
   rl.on('close', async () => {
     console.log(`Checking ${Object.keys(deposits).length} wallets`);
     const results = await checkWallets(deposits);
+    await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
+
     // const specificWallet = '0x0127F5b0e559D1C8C054d83f8F187CDFDc80B608'
     // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
-    await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
+    // console.log(JSON.stringify(results, bigintHex, 2));
   });
-
 })();
