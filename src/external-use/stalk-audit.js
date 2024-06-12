@@ -5,10 +5,15 @@ const storageLayout = require('../contracts/beanstalk/storageLayout.json');
 const ContractStorage = require('../datasources/storage/src/contract-storage');
 const { providerThenable } = require('../provider');
 const { bigintHex } = require('../utils/json-formatter.js');
-const { absBigInt } = require('../utils/bigint.js');
 const { asyncBeanstalkContractGetter } = require('../datasources/contract-function.js');
+const retryable = require('../utils/retryable.js');
 
-function parseLine(deposits, line) {
+let bs;
+let stemScaleSeason;
+let accountUpdates = {};
+let parseProgress = 0;
+
+async function parseLine(deposits, line) {
   const elem = line.split(',');
   if (elem[0] == 'account') {
     // Skip first line of csv
@@ -17,7 +22,18 @@ function parseLine(deposits, line) {
 
   let [account, _, token, stem, amount, bdv] = elem;
 
-  stem = transformStem(BigInt(stem));
+  // Get info that is required to process the appropriate stems
+  if (!stemScaleSeason) {
+    bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
+    stemScaleSeason = await bs.s.season.stemScaleSeason;
+  }
+
+  if (!accountUpdates[account]) {
+    accountUpdates[account] = await bs.s.a[account].lastUpdate;
+  }
+
+  // Transform stem if needed
+  stem = transformStem(account, BigInt(stem));
 
   if (!deposits[account]) {
     deposits[account] = {}
@@ -30,22 +46,19 @@ function parseLine(deposits, line) {
     amount: BigInt(amount),
     bdv: BigInt(bdv)
   };
+
+  process.stdout.write(`\r${++parseProgress} / ?`);
 }
 
-// Transforms the stem according to silo v3.1 if necessary
-function transformStem(stem) {
-  if (absBigInt(stem) < BigInt(10 ** 6)) {
-    return stem * BigInt(10 ** 6);
-  }
-  return stem;
+// Transforms the stem according to silo v3.1
+function scaleStem(stem) {
+  return stem * BigInt(10 ** 6);
 }
 
-// Gets the mow stem and scales if appropriate
-async function getMowStem(account, token, lastUpdate, stemScaleSeason) {
-  const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
-  const stem = await bs.s.a[account].mowStatuses[token].lastStem;
-  if (lastUpdate < stemScaleSeason && lastUpdate > 0) {
-    return transformStem(stem);
+// Transforms the stem according to silo v3.1 if appropriate
+function transformStem(account, stem) {
+  if (accountUpdates[account] < stemScaleSeason && accountUpdates[account] > 0) {
+    return scaleStem(stem);
   }
   return stem;
 }
@@ -54,25 +67,22 @@ async function checkWallets(deposits) {
   const results = {};
   const depositors = Object.keys(deposits);
 
-  const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
-  const stemScaleSeason = await bs.s.season.stemScaleSeason;
-
   for (let i = 0; i < depositors.length; ++i) {
 
     const depositor = depositors[i];
     results[depositor] = { breakdown: {} };
-    const lastUpdate = bs.s.a[depositor].lastUpdate;
 
     let netDepositorStalk = 0n;
     for (const token in deposits[depositor]) {
 
-      const mowStem = await getMowStem(depositor, token, lastUpdate, stemScaleSeason);
+      const mowStem = transformStem(depositor, await bs.s.a[depositor].mowStatuses[token].lastStem);
       let netTokenStalk = 0n;
       for (const stem in deposits[depositor][token]) {
         const stemDelta = mowStem - BigInt(stem);
         // Deposit stalk = grown + base stalk
         // stems have 6 precision, though 10 is needed to grow one stalk. 10 + 6 - 6 => 10 precision for stalk
-        netTokenStalk += (stemDelta + transformStem(10000n)) * deposits[depositor][token][stem].bdv / BigInt(10 ** 6);
+        netTokenStalk += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv / BigInt(10 ** 6);
+        // console.log(`${token}, ${stem}, ${mowStem}, ${deposits[depositor][token][stem].bdv}`);
       }
       netDepositorStalk += netTokenStalk;
       results[depositor].breakdown[token] = netTokenStalk;
@@ -82,8 +92,9 @@ async function checkWallets(deposits) {
     results[depositor].contractStalk = await getContractStalk(depositor);
     results[depositor].discrepancy = results[depositor].depositStalk - results[depositor].contractStalk;
 
-    console.log(`${i + 1} / ${depositors.length}`);
+    process.stdout.write(`\r${i + 1} / ${depositors.length}`);
   }
+  process.stdout.write('\n');
 
   // Format the result with raw hex values and decimal values
   const reducer = (result, [k, v]) => {
@@ -108,21 +119,19 @@ async function checkWallets(deposits) {
 // anything that has finished germinating or is still germinating (and this not part of s.a[depositor].s.stalk)
 // NOT including earned beans since we are only trying to verify deposits.
 async function getContractStalk(account) {
-  const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
   const beanstalk = await asyncBeanstalkContractGetter();
 
   const [storage, germinating, doneGerminating] = await Promise.all([
     bs.s.a[account].s.stalk,
-    (async () => {
+    retryable(async () => {
       return BigInt(await beanstalk.callStatic.balanceOfGerminatingStalk(account));
-    })(),
-    (async () => {
+    }),
+    retryable(async () => {
       return BigInt((await beanstalk.callStatic.balanceOfFinishedGerminatingStalkAndRoots(account))[0]);
-    })()
+    })
   ]);
   return storage + germinating + doneGerminating;
 }
-
 
 (async () => {
 
@@ -133,26 +142,29 @@ async function getContractStalk(account) {
     crlfDelay: Infinity
   });
 
+  const specificWallet = '0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'
+
   const deposits = {};
   console.log('Reading deposits data from file');
-  rl.on('line', (line) => {
-    parseLine(deposits, line);
-  });
+  for await (const line of rl) {
+    if (line.includes(specificWallet)) {
+      await parseLine(deposits, line);
+    }
+  }
+  process.stdout.write('\n');
+  console.log(`Finished processing ${parseProgress} entries`);
 
-  rl.on('close', async () => {
-    console.log(`Checking ${Object.keys(deposits).length} wallets`);
-    const results = await checkWallets(deposits);
-    await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
+  // console.log(`Checking ${Object.keys(deposits).length} wallets`);
+  // const results = await checkWallets(deposits);
+  // await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
 
-    const formatted = Object.entries(results).filter(([k, v]) =>
-      results[k].raw.discrepancy !== '0x0'
-    ).sort(([_, a], [_1, b]) =>
-      Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
-    );
-    await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
+  // const formatted = Object.entries(results).filter(([k, v]) =>
+  //   results[k].raw.discrepancy !== '0x0'
+  // ).sort(([_, a], [_1, b]) =>
+  //   Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
+  // );
+  // await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
 
-    // const specificWallet = '0xef49ffe2c1a6f64cfe18a26b3efe7d87830838c8'
-    // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
-    // console.log(JSON.stringify(results, bigintHex, 2));
-  });
+  const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
+  console.log(JSON.stringify(results, bigintHex, 2));
 })();
