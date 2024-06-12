@@ -7,6 +7,7 @@ const { BigNumber } = require('alchemy-sdk');
 
 const ContractStorage = require("../datasources/storage/src/contract-storage");
 const storageLayout = require('../contracts/beanstalk/storageLayout.json');
+const { bigintHex } = require("../utils/json-formatter");
 
 // EBIP-17 is necessary to correct the earned beans issue resolved by EBIP-16
 
@@ -199,9 +200,7 @@ async function fillResults(results, lastDiff, startBlock, endBlock) {
   
   await fs.promises.writeFile(
     'results/ebip-17.json',
-    JSON.stringify(results, (_, value) => {
-      return typeof value === 'bigint' ? "0x" + value.toString(16) : value;
-    }, 2)
+    JSON.stringify(results, bigintHex, 2)
   );
 
 })();

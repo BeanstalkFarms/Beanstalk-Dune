@@ -2,6 +2,7 @@
   "scripts": {
     "start": "node src/app.js",
     "ebip17": "node src/external-use/ebip-17.js",
+    "stalk-audit": "node src/external-use/stalk-audit.js",
     "playground": "node test/playground.js"
   },
   "dependencies": {
