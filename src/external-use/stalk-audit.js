@@ -40,19 +40,33 @@ function transformStem(stem) {
   return stem;
 }
 
+// Gets the mow stem and scales if appropriate
+async function getMowStem(account, token, lastUpdate, stemScaleSeason) {
+  const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
+  const stem = await bs.s.a[account].mowStatuses[token].lastStem;
+  if (lastUpdate < stemScaleSeason && lastUpdate > 0) {
+    return transformStem(stem);
+  }
+  return stem;
+}
+
 async function checkWallets(deposits) {
   const results = {};
-  const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
   const depositors = Object.keys(deposits);
+
+  const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
+  const stemScaleSeason = await bs.s.season.stemScaleSeason;
+
   for (let i = 0; i < depositors.length; ++i) {
 
     const depositor = depositors[i];
     results[depositor] = { breakdown: {} };
+    const lastUpdate = bs.s.a[depositor].lastUpdate;
 
     let netDepositorStalk = 0n;
     for (const token in deposits[depositor]) {
 
-      const mowStem = transformStem(await bs.s.a[depositor].mowStatuses[token].lastStem);
+      const mowStem = await getMowStem(depositor, token, lastUpdate, stemScaleSeason);
       let netTokenStalk = 0n;
       for (const stem in deposits[depositor][token]) {
         const stemDelta = mowStem - BigInt(stem);
@@ -68,7 +82,6 @@ async function checkWallets(deposits) {
     results[depositor].contractStalk = await getContractStalk(depositor);
     results[depositor].discrepancy = results[depositor].depositStalk - results[depositor].contractStalk;
 
-    // console.log(`net deposit stalk for ${depositor}: ${netDepositorStalk}`);
     console.log(`${i + 1} / ${depositors.length}`);
   }
 
@@ -131,15 +144,15 @@ async function getContractStalk(account) {
     const results = await checkWallets(deposits);
     await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
 
-    // const specificWallet = '0x0127F5b0e559D1C8C054d83f8F187CDFDc80B608'
-    // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
-    // console.log(JSON.stringify(results, bigintHex, 2));
-
     const formatted = Object.entries(results).filter(([k, v]) =>
       results[k].raw.discrepancy !== '0x0'
     ).sort(([_, a], [_1, b]) =>
       Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
     );
     await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
+
+    // const specificWallet = '0xef49ffe2c1a6f64cfe18a26b3efe7d87830838c8'
+    // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
+    // console.log(JSON.stringify(results, bigintHex, 2));
   });
 })();
