@@ -110,6 +110,7 @@ async function getContractStalk(account) {
   return storage + germinating + doneGerminating;
 }
 
+
 (async () => {
 
   // https://dune.com/queries/3819175
@@ -133,5 +134,12 @@ async function getContractStalk(account) {
     // const specificWallet = '0x0127F5b0e559D1C8C054d83f8F187CDFDc80B608'
     // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
     // console.log(JSON.stringify(results, bigintHex, 2));
+
+    const formatted = Object.entries(results).filter(([k, v]) =>
+      results[k].raw.discrepancy !== '0x0'
+    ).sort(([_, a], [_1, b]) =>
+      Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
+    );
+    await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
   });
 })();
