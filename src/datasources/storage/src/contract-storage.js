@@ -4,15 +4,15 @@ const { SLOT_SIZE, getStorageBytes, decodeType, slotsForArrayIndex } = require('
 const retryable = require('./utils/retryable.js');
 
 function transformMembersList(members) {
-    const retval = {};
-    for (const field of members) {
-        retval[field.label] = field;
-    }
-    return retval;
+  const retval = {};
+  for (const field of members) {
+    retval[field.label] = field;
+  }
+  return retval;
 }
 
 function copy(obj) {
-    return JSON.parse(JSON.stringify(obj));
+  return JSON.parse(JSON.stringify(obj));
 }
 
 /**
@@ -22,195 +22,194 @@ function copy(obj) {
  * > await beanstalk.s.a[account].field.plots[index]
  */
 function makeProxyHandler(provider, contractAddress, types, blockNumber = 'latest') {
-    const getStorageAt = (storageSlot) => retryable(() => provider.getStorageAt(contractAddress, storageSlot, blockNumber));
-    const handler = {
-        get: function(target, property) {
-            if (['__storageSlot', '__currentType', 'then'].includes(property)) {
-                return target[property];
-            } else {
-                // console.debug(`Current type: ${target.__currentType}\nCurrent slot: ${target.__storageSlot.toString(16)}\nSeeking property: ${property}`)
-                let returnProxy;
-                let slotOffset = 0;
-                const currentType = types[target.__currentType];
-                if (currentType.hasOwnProperty('members')) {
-                    // Struct
-                    const members = transformMembersList(currentType.members);
-                    const field = members[property];
-                    if (!field) {
-                        throw new Error(`Unrecognized property \`${property}\` on \`${target.__currentType}\`. Please check the supplied storageLayout file.`);
-                    }
-                    returnProxy = new Proxy(copy(types[field.type]), handler);
-                    returnProxy.__storageSlot = target.__storageSlot + BigInt(parseInt(field.slot));
-                    returnProxy.__currentType = field.type;
-                    slotOffset = field.offset;
-                } else if (currentType.hasOwnProperty('value')) {
-                    // Mapping
-                    returnProxy = new Proxy(copy(types[currentType.value]), handler);
-                    let keyType = currentType.key.slice(2); // remove the "t_"
-                    keyType = keyType.includes('contract') ? 'address' : keyType;
-                    const encoded = abiCoder.encode([keyType, 'uint256'], [property, "0x" + target.__storageSlot.toString(16)]);
-                    const keccak = ethers.keccak256(encoded);
-                    returnProxy.__storageSlot = BigInt(keccak);
-                    returnProxy.__currentType = currentType.value;
-                } else if (currentType.encoding === 'dynamic_array') {
-                    // Dynamic array
-                    returnProxy = new Proxy(copy(types[currentType.base]), handler);
-                    const encoded = abiCoder.encode(['uint256'], ["0x" + target.__storageSlot.toString(16)]);
-                    const keccak = ethers.keccak256(encoded);
-                    returnProxy.__storageSlot = BigInt(keccak) + BigInt(property);
-                    returnProxy.__currentType = currentType.base;
-                } else if (currentType.label.includes('[')) {
-                    // Fixed array
-                    const arrayBase = types[currentType.base];
-                    const arraySlots = slotsForArrayIndex(parseInt(property), parseInt(arrayBase.numberOfBytes));
-                    returnProxy = new Proxy(copy(arrayBase), handler);
-                    returnProxy.__storageSlot = target.__storageSlot + BigInt(arraySlots.slot);
-                    returnProxy.__currentType = currentType.base;
-                    slotOffset = arraySlots.slotOffset;
-                }
-                
-                const returnType = types[returnProxy.__currentType];
-                if (returnType.label.includes('[')) {
-                    // For array types, also attach a then method to the return proxy so the caller
-                    // has an option to get the whole array and iterate it.
-                    // Currently this only would be effective for flat arrays containing primitive types.
-
-                    // Starting point of the array in storage, will retrieve sequentially after this
-                    let arrayStart = -1;
-                    // Number of bytes to retrieve. Used in determining if more storage should be retrieved.
-                    let numberOfBytes = -1;
-                    const bytesPerElement = types[returnType.base].numberOfBytes;
-                    // Max number of bytes that could be used by one array slot. For example, if its an array
-                    // of structs which are 10 bytes each, maxUsedBytesPerSlot = 30.
-                    const maxUsedBytesPerSlot = Math.floor(SLOT_SIZE / bytesPerElement) * bytesPerElement;
-                    if (returnType.encoding === 'dynamic_array') {
-                        // The array begins at keccak(slot)
-                        const encodedSlot = abiCoder.encode(['uint256'], ["0x" + returnProxy.__storageSlot.toString(16)]);
-                        const keccak = ethers.keccak256(encodedSlot);
-                        arrayStart = BigInt(keccak);
-                        // numberOfBytes will be calculated on first call to makeResultThenable.
-                    } else {
-                        arrayStart = returnProxy.__storageSlot;
-                        numberOfBytes = returnType.numberOfBytes;
-                    }
-                    const makeResultThenable = (data, arrayIndex) => (resolve, reject) => {
-                        const getStorage = () => getStorageAt(arrayStart + BigInt(arrayIndex))
-                                .then(valueAtSlot => {
-                                    const remainingBytes = numberOfBytes - SLOT_SIZE*(arrayIndex);
-                                    // Parse only the bytes which are relevant to the contents of the result array
-                                    const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(maxUsedBytesPerSlot, remainingBytes));
-                                    if (remainingBytes > SLOT_SIZE) {
-                                        // Recursion here
-                                        resolve({then: makeResultThenable([...data, result], arrayIndex + 1)});
-                                    } else {
-                                        resolve(decodeType([...data, result], returnType, types));
-                                    }
-                                });
-                        if (numberOfBytes === -1) {
-                            getStorageAt(returnProxy.__storageSlot)
-                                    .then(arraySize => {
-                                        const elementsPerSlot = Math.floor(SLOT_SIZE / bytesPerElement);
-                                        const totalSlots = Math.ceil(1 / elementsPerSlot * arraySize);
-                                        const elementsInFinalSlot = arraySize % elementsPerSlot;
-                                        numberOfBytes = (totalSlots - 1) * SLOT_SIZE + elementsInFinalSlot * bytesPerElement;
-                                    })
-                                    .then(getStorage);
-                        } else {
-                            getStorage();
-                        }
-                    };
-                    // Since at this point we are operating on an array, we can assume that "then" won't
-                    // collide with a variable name (i.e. can't access property .then on an array in solidity)
-                    returnProxy.then = makeResultThenable([], 0);
-
-                } else if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
-                    // There are no further members, therefore this must be the end.
-
-                    const returnThenable = (resolve, reject) => {
-                        // console.debug('Retrieving storage slot:', returnProxy.__storageSlot.toString(16));
-                        getStorageAt(returnProxy.__storageSlot)
-                                .then(valueAtSlot => {
-                                    // console.debug('slot:', valueAtSlot);
-                                    const result = getStorageBytes(valueAtSlot, slotOffset, returnType.numberOfBytes);
-                                    resolve(decodeType(result, returnType, types));
-                                });
-                    };
-                    
-                    // Generic thenable is preferable to Promise as sometimes the caller only wants the slot number,
-                    // and in such cases there is no need to preload the result.
-                    return {
-                        slot: returnProxy.__storageSlot,
-                        then: returnThenable,
-                        /// EDIT: this is no longer necessary now that BigInt is used instead
-                        // Adds a toNumber function onto the return thenable. This allows callers to choose whether
-                        // to receive BigNumber or number in a single line without having to wrap the await.
-                        // i.e. await beanstalk.s.deprecated[12].toNumber() vs (await beanstalk.s.deprecated[12]).toNumber()
-                        // toNumber: () => {
-                        //     // Compare with promise syntax
-                        //     // {return new Promise((resolve, reject) => returnThenable.then(bn => resolve(bn.toNumber())))};
-                        //     return { then: (resolve, reject) => returnThenable((bn) => resolve(bn.toNumber())) }
-                        // }
-                    }
-                }
-                return returnProxy;
-            }
+  const getStorageAt = (storageSlot) => retryable(() => provider.getStorageAt(contractAddress, storageSlot, blockNumber));
+  const handler = {
+    get: function(target, property) {
+      if (['__storageSlot', '__currentType', 'then'].includes(property)) {
+        return target[property];
+      } else {
+        // console.debug(`Current type: ${target.__currentType}\nCurrent slot: ${target.__storageSlot.toString(16)}\nSeeking property: ${property}`)
+        let returnProxy;
+        let slotOffset = 0;
+        const currentType = types[target.__currentType];
+        if (currentType.hasOwnProperty('members')) {
+          // Struct
+          const members = transformMembersList(currentType.members);
+          const field = members[property];
+          if (!field) {
+            throw new Error(`Unrecognized property \`${property}\` on \`${target.__currentType}\`. Please check the supplied storageLayout file.`);
+          }
+          returnProxy = new Proxy(copy(types[field.type]), handler);
+          returnProxy.__storageSlot = target.__storageSlot + BigInt(parseInt(field.slot));
+          returnProxy.__currentType = field.type;
+          slotOffset = field.offset;
+        } else if (currentType.hasOwnProperty('value')) {
+          // Mapping
+          returnProxy = new Proxy(copy(types[currentType.value]), handler);
+          let keyType = currentType.key.slice(2); // remove the "t_"
+          keyType = keyType.includes('contract') ? 'address' : keyType;
+          const encoded = abiCoder.encode([keyType, 'uint256'], [property, "0x" + target.__storageSlot.toString(16)]);
+          const keccak = ethers.keccak256(encoded);
+          returnProxy.__storageSlot = BigInt(keccak);
+          returnProxy.__currentType = currentType.value;
+        } else if (currentType.encoding === 'dynamic_array') {
+          // Dynamic array
+          returnProxy = new Proxy(copy(types[currentType.base]), handler);
+          const encoded = abiCoder.encode(['uint256'], ["0x" + target.__storageSlot.toString(16)]);
+          const keccak = ethers.keccak256(encoded);
+          returnProxy.__storageSlot = BigInt(keccak) + BigInt(property);
+          returnProxy.__currentType = currentType.base;
+        } else if (currentType.label.includes('[')) {
+          // Fixed array
+          const arrayBase = types[currentType.base];
+          const arraySlots = slotsForArrayIndex(parseInt(property), parseInt(arrayBase.numberOfBytes));
+          returnProxy = new Proxy(copy(arrayBase), handler);
+          returnProxy.__storageSlot = target.__storageSlot + BigInt(arraySlots.slot);
+          returnProxy.__currentType = currentType.base;
+          slotOffset = arraySlots.slotOffset;
         }
+        
+        const returnType = types[returnProxy.__currentType];
+        if (returnType.label.includes('[')) {
+          // For array types, also attach a then method to the return proxy so the caller
+          // has an option to get the whole array and iterate it.
+          // Currently this only would be effective for flat arrays containing primitive types.
+
+          // Starting point of the array in storage, will retrieve sequentially after this
+          let arrayStart = -1;
+          // Number of bytes to retrieve. Used in determining if more storage should be retrieved.
+          let numberOfBytes = -1;
+          const bytesPerElement = types[returnType.base].numberOfBytes;
+          // Max number of bytes that could be used by one array slot. For example, if its an array
+          // of structs which are 10 bytes each, maxUsedBytesPerSlot = 30.
+          const maxUsedBytesPerSlot = Math.floor(SLOT_SIZE / bytesPerElement) * bytesPerElement;
+          if (returnType.encoding === 'dynamic_array') {
+            // The array begins at keccak(slot)
+            const encodedSlot = abiCoder.encode(['uint256'], ["0x" + returnProxy.__storageSlot.toString(16)]);
+            const keccak = ethers.keccak256(encodedSlot);
+            arrayStart = BigInt(keccak);
+            // numberOfBytes will be calculated on first call to makeResultThenable.
+          } else {
+            arrayStart = returnProxy.__storageSlot;
+            numberOfBytes = returnType.numberOfBytes;
+          }
+          const makeResultThenable = (data, arrayIndex) => (resolve, reject) => {
+              const getStorage = () => getStorageAt(arrayStart + BigInt(arrayIndex))
+                .then(valueAtSlot => {
+                  const remainingBytes = numberOfBytes - SLOT_SIZE*(arrayIndex);
+                  // Parse only the bytes which are relevant to the contents of the result array
+                  const result = getStorageBytes(valueAtSlot, slotOffset, Math.min(maxUsedBytesPerSlot, remainingBytes));
+                  if (remainingBytes > SLOT_SIZE) {
+                    // Recursion here
+                    resolve({then: makeResultThenable([...data, result], arrayIndex + 1)});
+                  } else {
+                    resolve(decodeType([...data, result], returnType, types));
+                  }
+                });
+              if (numberOfBytes === -1) {
+                getStorageAt(returnProxy.__storageSlot)
+                  .then(arraySize => {
+                    const elementsPerSlot = Math.floor(SLOT_SIZE / bytesPerElement);
+                    const totalSlots = Math.ceil(1 / elementsPerSlot * arraySize);
+                    const elementsInFinalSlot = arraySize % elementsPerSlot;
+                    numberOfBytes = (totalSlots - 1) * SLOT_SIZE + elementsInFinalSlot * bytesPerElement;
+                  })
+                  .then(getStorage);
+              } else {
+                getStorage();
+              }
+          };
+          // Since at this point we are operating on an array, we can assume that "then" won't
+          // collide with a variable name (i.e. can't access property .then on an array in solidity)
+          returnProxy.then = makeResultThenable([], 0);
+
+        } else if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
+          // There are no further members, therefore this must be the end.
+
+          const returnThenable = (resolve, reject) => {
+              // console.debug('Retrieving storage slot:', returnProxy.__storageSlot.toString(16));
+            getStorageAt(returnProxy.__storageSlot)
+              .then(valueAtSlot => {
+                // console.debug('slot:', valueAtSlot);
+                const result = getStorageBytes(valueAtSlot, slotOffset, returnType.numberOfBytes);
+                resolve(decodeType(result, returnType, types));
+              });
+          };
+          
+          // Generic thenable is preferable to Promise as sometimes the caller only wants the slot number,
+          // and in such cases there is no need to preload the result.
+          return {
+            slot: returnProxy.__storageSlot,
+            then: returnThenable,
+            /// EDIT: this is no longer necessary now that BigInt is used instead
+            // Adds a toNumber function onto the return thenable. This allows callers to choose whether
+            // to receive BigNumber or number in a single line without having to wrap the await.
+            // i.e. await beanstalk.s.deprecated[12].toNumber() vs (await beanstalk.s.deprecated[12]).toNumber()
+            // toNumber: () => {
+            //     // Compare with promise syntax
+            //     // {return new Promise((resolve, reject) => returnThenable.then(bn => resolve(bn.toNumber())))};
+            //     return { then: (resolve, reject) => returnThenable((bn) => resolve(bn.toNumber())) }
+            // }
+          }
+        }
+        return returnProxy;
+      }
     }
-    return handler;
+  }
+  return handler;
 }
 
 // See README.md for detailed instructions
 class ContractStorage {
 
-    /**
-     * 
-     * @param provider - an ethersjs provider, or anything having a `.getStorageAt(address, slot)` function.
-     * @param contractAddress - the address of the contract that you desire to retrieve storage for
-     * @param storageLayout - the storage layout mapping for your contract.
-     * @param defaultBlock - the default block number to use for storage lookup.
-     * @returns 
-     */
-    constructor(provider, contractAddress, storageLayout, defaultBlock = 'latest') {
-    
-        this.__storageLayout = storageLayout;
-        this.__defaultBlock = defaultBlock;
+  /**
+   * @param provider - an ethersjs provider, or anything having a `.getStorageAt(address, slot)` function.
+   * @param contractAddress - the address of the contract that you desire to retrieve storage for
+   * @param storageLayout - the storage layout mapping for your contract.
+   * @param defaultBlock - the default block number to use for storage lookup.
+   * @returns
+   */
+  constructor(provider, contractAddress, storageLayout, defaultBlock = 'latest') {
+  
+    this.__storageLayout = storageLayout;
+    this.__defaultBlock = defaultBlock;
 
-        // Create top level proxy with recreatable subproxies, necessary for isolated state
-        const initProxyHandler = {
-            get: (target, property) => {
-                if (['__setDefaultBlock'].includes(property)) {
-                    return target[property];
-                }
+    // Create top level proxy with recreatable subproxies, necessary for isolated state
+    const initProxyHandler = {
+      get: (target, property) => {
+        if (['__setDefaultBlock'].includes(property)) {
+          return target[property];
+        }
 
-                if (!target.__block) {
-                    // A block has not been selected yet
-                    const isLeadingNumeric = property.charCodeAt(0) >= 48 && property.charCodeAt(0) <= 57;
-                    if (isLeadingNumeric) {
-                        // Need to receive an additional property
-                        return new Proxy({ __block: parseInt(property) }, initProxyHandler);
-                    }
-                }
+        if (!target.__block) {
+          // A block has not been selected yet
+          const isLeadingNumeric = property.charCodeAt(0) >= 48 && property.charCodeAt(0) <= 57;
+          if (isLeadingNumeric) {
+            // Need to receive an additional property
+            return new Proxy({ __block: parseInt(property) }, initProxyHandler);
+          }
+        }
 
-                const block = target.__block ?? this.__defaultBlock;
-                // Initialize all top level storage fields
-                const fieldProxyHandler = makeProxyHandler(provider, contractAddress, this.__storageLayout.types, block);
-                const requestedField = storageLayout.storage.filter(f => f.label === property);
-                if (requestedField.length !== 1) {
-                    throw new Error(`Unrecognized top-level property \`${property}\`. Please check the supplied storageLayout file.`);
-                }
+        const block = target.__block ?? this.__defaultBlock;
+        // Initialize all top level storage fields
+        const fieldProxyHandler = makeProxyHandler(provider, contractAddress, this.__storageLayout.types, block);
+        const requestedField = storageLayout.storage.filter(f => f.label === property);
+        if (requestedField.length !== 1) {
+          throw new Error(`Unrecognized top-level property \`${property}\`. Please check the supplied storageLayout file.`);
+        }
 
-                const returnProxy = new Proxy(requestedField[0], fieldProxyHandler);
-                returnProxy.__storageSlot = BigInt(0);
-                returnProxy.__currentType = requestedField[0].type;
-                return returnProxy;
-            }
-        };
-        return new Proxy(this, initProxyHandler);
-    }
+        const returnProxy = new Proxy(requestedField[0], fieldProxyHandler);
+        returnProxy.__storageSlot = BigInt(0);
+        returnProxy.__currentType = requestedField[0].type;
+        return returnProxy;
+      }
+    };
+    return new Proxy(this, initProxyHandler);
+  }
 
-    __setDefaultBlock(newDefault) {
-        this.__defaultBlock = newDefault;
-    }
+  __setDefaultBlock(newDefault) {
+    this.__defaultBlock = newDefault;
+  }
 }
 
 module.exports = ContractStorage;
