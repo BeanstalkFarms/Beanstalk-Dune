@@ -1,6 +1,7 @@
 const ethers = require('ethers');
 const abiCoder = new ethers.AbiCoder();
 const { SLOT_SIZE, getStorageBytes, decodeType, slotsForArrayIndex } = require('./utils/solidity-data.js');
+const retryable = require('./utils/retryable.js');
 
 function transformMembersList(members) {
     const retval = {};
@@ -21,7 +22,7 @@ function copy(obj) {
  * > await beanstalk.s.a[account].field.plots[index]
  */
 function makeProxyHandler(provider, contractAddress, types, blockNumber = 'latest') {
-    const getStorageAt = (storageSlot) => provider.getStorageAt(contractAddress, storageSlot, blockNumber);
+    const getStorageAt = (storageSlot) => retryable(() => provider.getStorageAt(contractAddress, storageSlot, blockNumber));
     const handler = {
         get: function(target, property) {
             if (['__storageSlot', '__currentType', 'then'].includes(property)) {

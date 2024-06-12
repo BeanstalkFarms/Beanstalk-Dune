@@ -68,6 +68,7 @@ async function checkWallets(deposits) {
     results[depositor].discrepancy = results[depositor].depositStalk - results[depositor].contractStalk;
 
     // console.log(`net deposit stalk for ${depositor}: ${netDepositorStalk}`);
+    console.log(`${i + 1} / ${depositors.length}`);
   }
 
   // Format the result with raw hex values and decimal values
