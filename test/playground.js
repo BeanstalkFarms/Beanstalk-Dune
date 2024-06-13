@@ -258,6 +258,25 @@ async function contractData() {
     // console.log(await beanlusd.callStatic.fee());
 
     const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
+    console.log('slot', bs.s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate.slot.toString(16))
+    const searchFn = async (block) => {
+        const lastUpdate = await bs[block].s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate;
+        const stemScale = await bs[block].s.season.stemScaleSeason;
+        console.log(lastUpdate, stemScale);
+        return stemScale > 0n && lastUpdate > stemScale ? -1 : 1
+    };
+    const result = await binarySearch(
+        19000000,
+        20079829, 
+        searchFn
+    );
+    console.log('------------------------------');
+    console.log(`location: ${result.location}`);
+    await searchFn(result.location - 1);
+    await searchFn(result.location);
+    await searchFn(result.location + 1);
+
+    
     // console.log(await bs.s.season.stemStartSeason);
     // console.log(await bs.s.a['0x10bf1dcb5ab7860bab1c3320163c6dddf8dcc0e4'].s.stalk.slot);
     // console.log(await bs.s.podOrders['0x255839c4aa83755d366d960fd3f4a478b0c3da3c5cceb04d62fb75f0228bf561']);
@@ -348,12 +367,12 @@ async function contractData() {
     // );
     // console.log(`found at ${searchResult.location}`)
 
-    console.log(await bs[100001].s.s.stalk);
-    console.log(await bs.s.s.stalk);
-    // bs.__setDefaultBlock(19000000);
-    console.log(await bs[100001].s.s.stalk);
-    console.log(await bs.s.s.stalk);
-    console.log(await bs[100001].s.s.stalk);
+    // console.log(await bs[100001].s.s.stalk);
+    // console.log(await bs.s.s.stalk);
+    // // bs.__setDefaultBlock(19000000);
+    // console.log(await bs[100001].s.s.stalk);
+    // console.log(await bs.s.s.stalk);
+    // console.log(await bs[100001].s.s.stalk);
 
     ///// TODO: generalize this snippet as a generalized binary search on an arbitrary function
     // let top = 20000000;

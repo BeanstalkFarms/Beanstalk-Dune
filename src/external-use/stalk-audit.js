@@ -13,6 +13,8 @@ let stemScaleSeason;
 let accountUpdates = {};
 let parseProgress = 0;
 
+const EXPORT_BLOCK = 20080444;
+
 // Equivalent to LibBytes.packAddressAndStem
 function packAddressAndStem(address, stem) {
   const addressBigInt = BigInt(address);
@@ -65,6 +67,7 @@ function scaleStem(stem) {
 // Transforms the stem according to silo v3.1 if appropriate. Checks for legacy deposit
 async function transformStem(account, token, stem) {
   const depositId = packAddressAndStem(token, stem);
+  // console.log(token, stem, await bs.s.a[account].legacyV3Deposits[depositId].amount);
   if (await bs.s.a[account].legacyV3Deposits[depositId].amount > 0n) {
     return {
       actualStem: scaleStem(stem),
@@ -92,7 +95,7 @@ async function checkWallets(deposits) {
       let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
       // console.log(mowStem, Object.keys(deposits[depositor][token]));
       if (mowStem < Math.max(...Object.keys(deposits[depositor][token]))) {
-        console.log(`mowStem needed adjustment for account: ${depositor}, token: ${token}`);
+        // console.log(`mowStem needed adjustment for account: ${depositor}, token: ${token}`);
         mowStem = scaleStem(mowStem);
       }
 
@@ -144,10 +147,10 @@ async function getContractStalk(account) {
   const [storage, germinating, doneGerminating] = await Promise.all([
     bs.s.a[account].s.stalk,
     retryable(async () => {
-      return BigInt(await beanstalk.callStatic.balanceOfGerminatingStalk(account));
+      return BigInt(await beanstalk.callStatic.balanceOfGerminatingStalk(account, { blockTag: EXPORT_BLOCK }));
     }),
     retryable(async () => {
-      return BigInt((await beanstalk.callStatic.balanceOfFinishedGerminatingStalkAndRoots(account))[0]);
+      return BigInt((await beanstalk.callStatic.balanceOfFinishedGerminatingStalkAndRoots(account, { blockTag: EXPORT_BLOCK }))[0]);
     })
   ]);
   return storage + germinating + doneGerminating;
@@ -155,7 +158,13 @@ async function getContractStalk(account) {
 
 (async () => {
 
-  bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
+  bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, EXPORT_BLOCK);
+
+  const specificWallet = '0x5ab404ab63831bfcf824f53b4ac3737b9d155d90';
+
+  // const depositId = packAddressAndStem('0x1bea0050e63e05fbb5d8ba2f10cf5800b6224449', -18632000000);
+  // console.log('silo v3', await bs.s.a[specificWallet].legacyV3Deposits[depositId].amount);
+  // console.log('silo v3.1', await bs.s.a[specificWallet].deposits[depositId].amount);
 
   // https://dune.com/queries/3819175
   const fileStream = fs.createReadStream(`${__dirname}/data/deposit-stems.csv`);
@@ -163,8 +172,6 @@ async function getContractStalk(account) {
     input: fileStream,
     crlfDelay: Infinity
   });
-
-  // const specificWallet = '0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'
 
   const deposits = {};
   console.log('Reading deposits data from file');
@@ -176,6 +183,7 @@ async function getContractStalk(account) {
   process.stdout.write('\n');
   console.log(`Finished processing ${parseProgress} entries`);
 
+  ///
   console.log(`Checking ${Object.keys(deposits).length} wallets`);
   const results = await checkWallets(deposits);
   await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
@@ -186,7 +194,7 @@ async function getContractStalk(account) {
     Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
   );
   await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
-
+  ///
   // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
   // console.log(JSON.stringify(results, bigintHex, 2));
 })();
