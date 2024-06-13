@@ -8,10 +8,13 @@ const { bigintHex } = require('../utils/json-formatter.js');
 const { asyncBeanstalkContractGetter } = require('../datasources/contract-function.js');
 const retryable = require('../utils/retryable.js');
 
+let beanstalk;
 let bs;
+
 let stemScaleSeason;
 let accountUpdates = {};
 let parseProgress = 0;
+let stemTips = {};
 
 const EXPORT_BLOCK = 20080444;
 
@@ -38,6 +41,12 @@ async function parseLine(deposits, line) {
 
   if (!accountUpdates[account]) {
     accountUpdates[account] = await bs.s.a[account].lastUpdate;
+  }
+
+  if (!stemTips[token]) {
+    stemTips[token] = await retryable(async () => {
+      return BigInt(await beanstalk.callStatic.stemTipForToken(token, { blockTag: EXPORT_BLOCK }))
+    });
   }
 
   // Transform stem if needed
@@ -94,9 +103,14 @@ async function checkWallets(deposits) {
 
       let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
       // console.log(mowStem, Object.keys(deposits[depositor][token]));
-      if (accountUpdates[depositor] < stemScaleSeason && accountUpdates[depositor] > 0) {
+      if (
+        (accountUpdates[depositor] < stemScaleSeason && accountUpdates[depositor] > 0)
+        // Edge case for when user update and stem scale occurred at the same season
+        || (accountUpdates[depositor] == stemScaleSeason && mowStem > 0 && stemTips[token] / mowStem >= BigInt(10 ** 6))
+      ) {
         mowStem = scaleStem(mowStem);
       }
+      // console.log(accountUpdates[depositor], stemScaleSeason);
 
       let netTokenStalk = 0n;
       for (const stem in deposits[depositor][token]) {
@@ -141,8 +155,6 @@ async function checkWallets(deposits) {
 // anything that has finished germinating or is still germinating (and this not part of s.a[depositor].s.stalk)
 // NOT including earned beans since we are only trying to verify deposits.
 async function getContractStalk(account) {
-  const beanstalk = await asyncBeanstalkContractGetter();
-
   const [storage, germinating, doneGerminating] = await Promise.all([
     bs.s.a[account].s.stalk,
     retryable(async () => {
@@ -157,9 +169,10 @@ async function getContractStalk(account) {
 
 (async () => {
 
+  beanstalk = await asyncBeanstalkContractGetter();
   bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, EXPORT_BLOCK);
 
-  // const specificWallet = '0x61e413de4a40b8d03ca2f18026980e885ae2b345';
+  // const specificWallet = '0xbd80cee1d9ebe79a2005fc338c9a49b2764cfc36';
 
   // const depositId = packAddressAndStem('0x1bea0050e63e05fbb5d8ba2f10cf5800b6224449', -18632000000);
   // console.log('silo v3', await bs.s.a[specificWallet].legacyV3Deposits[depositId].amount);
