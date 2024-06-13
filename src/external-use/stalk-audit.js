@@ -94,8 +94,7 @@ async function checkWallets(deposits) {
 
       let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
       // console.log(mowStem, Object.keys(deposits[depositor][token]));
-      if (mowStem < Math.max(...Object.keys(deposits[depositor][token]))) {
-        // console.log(`mowStem needed adjustment for account: ${depositor}, token: ${token}`);
+      if (accountUpdates[depositor] < stemScaleSeason && accountUpdates[depositor] > 0) {
         mowStem = scaleStem(mowStem);
       }
 
@@ -160,7 +159,7 @@ async function getContractStalk(account) {
 
   bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, EXPORT_BLOCK);
 
-  const specificWallet = '0x5ab404ab63831bfcf824f53b4ac3737b9d155d90';
+  // const specificWallet = '0x61e413de4a40b8d03ca2f18026980e885ae2b345';
 
   // const depositId = packAddressAndStem('0x1bea0050e63e05fbb5d8ba2f10cf5800b6224449', -18632000000);
   // console.log('silo v3', await bs.s.a[specificWallet].legacyV3Deposits[depositId].amount);
@@ -189,7 +188,7 @@ async function getContractStalk(account) {
   await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
 
   const formatted = Object.entries(results).filter(([k, v]) =>
-    results[k].raw.discrepancy !== '0x0'
+    results[k].raw.discrepancy !== 0n
   ).sort(([_, a], [_1, b]) =>
     Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
   );
