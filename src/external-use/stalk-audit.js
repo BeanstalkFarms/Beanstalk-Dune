@@ -1,6 +1,6 @@
 const fs = require('fs');
 const readline = require('readline');
-const { BEANSTALK } = require('../addresses.js');
+const { BEANSTALK, BEANWETH } = require('../addresses.js');
 const storageLayout = require('../contracts/beanstalk/storageLayout.json');
 const ContractStorage = require('../datasources/storage/src/contract-storage');
 const { providerThenable } = require('../provider');
@@ -13,6 +13,13 @@ let stemScaleSeason;
 let accountUpdates = {};
 let parseProgress = 0;
 
+// Equivalent to LibBytes.packAddressAndStem
+function packAddressAndStem(address, stem) {
+  const addressBigInt = BigInt(address);
+  const stemBigInt = BigInt(stem);
+  return (addressBigInt << BigInt(96)) | (stemBigInt & BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFF'));
+}
+
 async function parseLine(deposits, line) {
   const elem = line.split(',');
   if (elem[0] == 'account') {
@@ -24,7 +31,6 @@ async function parseLine(deposits, line) {
 
   // Get info that is required to process the appropriate stems
   if (!stemScaleSeason) {
-    bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
     stemScaleSeason = await bs.s.season.stemScaleSeason;
   }
 
@@ -33,7 +39,7 @@ async function parseLine(deposits, line) {
   }
 
   // Transform stem if needed
-  stem = transformStem(account, BigInt(stem));
+  const { actualStem, isMigrated3_1 } = await transformStem(account, token, BigInt(stem));
 
   if (!deposits[account]) {
     deposits[account] = {}
@@ -42,9 +48,10 @@ async function parseLine(deposits, line) {
   if (!deposits[account][token]) {
     deposits[account][token] = {};
   }
-  deposits[account][token][stem] = {
+  deposits[account][token][actualStem] = {
     amount: BigInt(amount),
-    bdv: BigInt(bdv)
+    bdv: BigInt(bdv),
+    isMigrated3_1
   };
 
   process.stdout.write(`\r${++parseProgress} / ?`);
@@ -55,12 +62,19 @@ function scaleStem(stem) {
   return stem * BigInt(10 ** 6);
 }
 
-// Transforms the stem according to silo v3.1 if appropriate
-function transformStem(account, stem) {
-  if (accountUpdates[account] < stemScaleSeason && accountUpdates[account] > 0) {
-    return scaleStem(stem);
+// Transforms the stem according to silo v3.1 if appropriate. Checks for legacy deposit
+async function transformStem(account, token, stem) {
+  const depositId = packAddressAndStem(token, stem);
+  if (await bs.s.a[account].legacyV3Deposits[depositId].amount > 0n) {
+    return {
+      actualStem: scaleStem(stem),
+      isMigrated3_1: false
+    }
   }
-  return stem;
+  return {
+    actualStem: stem,
+    isMigrated3_1: true
+  }
 }
 
 async function checkWallets(deposits) {
@@ -75,14 +89,20 @@ async function checkWallets(deposits) {
     let netDepositorStalk = 0n;
     for (const token in deposits[depositor]) {
 
-      const mowStem = transformStem(depositor, await bs.s.a[depositor].mowStatuses[token].lastStem);
+      let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
+      // console.log(mowStem, Object.keys(deposits[depositor][token]));
+      if (mowStem < Math.max(...Object.keys(deposits[depositor][token]))) {
+        console.log(`mowStem needed adjustment for account: ${depositor}, token: ${token}`);
+        mowStem = scaleStem(mowStem);
+      }
+
       let netTokenStalk = 0n;
       for (const stem in deposits[depositor][token]) {
         const stemDelta = mowStem - BigInt(stem);
         // Deposit stalk = grown + base stalk
         // stems have 6 precision, though 10 is needed to grow one stalk. 10 + 6 - 6 => 10 precision for stalk
         netTokenStalk += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv / BigInt(10 ** 6);
-        // console.log(`${token}, ${stem}, ${mowStem}, ${deposits[depositor][token][stem].bdv}`);
+        // console.log(`token: ${token}, stem: ${stem}${!deposits[depositor][token][stem].isMigrated3_1 ? '(scaled)' : ''}, mowStem: ${mowStem}, bdv: ${deposits[depositor][token][stem].bdv}`);
       }
       netDepositorStalk += netTokenStalk;
       results[depositor].breakdown[token] = netTokenStalk;
@@ -135,6 +155,8 @@ async function getContractStalk(account) {
 
 (async () => {
 
+  bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
+
   // https://dune.com/queries/3819175
   const fileStream = fs.createReadStream(`${__dirname}/data/deposit-stems.csv`);
   const rl = readline.createInterface({
@@ -142,29 +164,29 @@ async function getContractStalk(account) {
     crlfDelay: Infinity
   });
 
-  const specificWallet = '0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'
+  // const specificWallet = '0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'
 
   const deposits = {};
   console.log('Reading deposits data from file');
   for await (const line of rl) {
-    if (line.includes(specificWallet)) {
+    // if (line.includes(specificWallet)) {
       await parseLine(deposits, line);
-    }
+    // }
   }
   process.stdout.write('\n');
   console.log(`Finished processing ${parseProgress} entries`);
 
-  // console.log(`Checking ${Object.keys(deposits).length} wallets`);
-  // const results = await checkWallets(deposits);
-  // await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
+  console.log(`Checking ${Object.keys(deposits).length} wallets`);
+  const results = await checkWallets(deposits);
+  await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
 
-  // const formatted = Object.entries(results).filter(([k, v]) =>
-  //   results[k].raw.discrepancy !== '0x0'
-  // ).sort(([_, a], [_1, b]) =>
-  //   Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
-  // );
-  // await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
+  const formatted = Object.entries(results).filter(([k, v]) =>
+    results[k].raw.discrepancy !== '0x0'
+  ).sort(([_, a], [_1, b]) =>
+    Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
+  );
+  await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
 
-  const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
-  console.log(JSON.stringify(results, bigintHex, 2));
+  // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
+  // console.log(JSON.stringify(results, bigintHex, 2));
 })();
