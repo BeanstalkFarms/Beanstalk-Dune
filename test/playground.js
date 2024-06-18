@@ -2,7 +2,7 @@ const ethers = require('ethers');
 const { BigNumber } = require('alchemy-sdk');
 const { providerThenable } = require('../src/provider.js');
 const { BEANSTALK, BEANSTALK_PRICE, BEAN, WETH, USDC, TETHER, DAI, PEPE, UNRIPE_BEAN, UNRIPE_LP, BEAN3CRV_V1, BEANLUSD, LUSD_3POOL, LUSD, BEANETH_UNIV2, WETHUSCD_UNIV2, BEANWETH, BEAN3CRV, THREEPOOL, CALCULATIONS_CURVE, CRV3 } = require('../src/addresses.js');
-const { asyncBeanstalkContractGetter, asyncBean3CrvContractGetter, asyncBeanstalkPriceContractGetter, getBalance, asyncBean3CrvV1ContractGetter, getContractAsync, asyncUniswapV2ContractGetter, asyncWellContractGetter, asyncBasinPumpContractGetter } = require('../src/datasources/contract-function.js');
+const { asyncBeanstalkContractGetter, asyncBean3CrvContractGetter, asyncBeanstalkPriceContractGetter, getBalance, asyncBean3CrvV1ContractGetter, getContractAsync, asyncUniswapV2ContractGetter, asyncWellContractGetter, asyncBasinPumpContractGetter, createAsyncERC20ContractGetter } = require('../src/datasources/contract-function.js');
 const { getStorageBytes } = require('../src/datasources/storage/src/utils/solidity-data.js');
 const ContractStorage = require('../src/datasources/storage/src/contract-storage.js');
 const storageLayout = require('../src/contracts/beanstalk/storageLayout.json');
@@ -258,23 +258,26 @@ async function contractData() {
     // console.log(await beanlusd.callStatic.fee());
 
     const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
-    console.log('slot', bs.s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate.slot.toString(16))
-    const searchFn = async (block) => {
-        const lastUpdate = await bs[block].s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate;
-        const stemScale = await bs[block].s.season.stemScaleSeason;
-        console.log(lastUpdate, stemScale);
-        return stemScale > 0n && lastUpdate > stemScale ? -1 : 1
-    };
-    const result = await binarySearch(
-        19000000,
-        20079829, 
-        searchFn
-    );
-    console.log('------------------------------');
-    console.log(`location: ${result.location}`);
-    await searchFn(result.location - 1);
-    await searchFn(result.location);
-    await searchFn(result.location + 1);
+    console.log('slot', bs.s.a['0x9c88cD7743FBb32d07ED6DD064aC71c6C4E70753'].s.stalk.slot.toString(16));
+    // console.log('slot', bs.s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate.slot.toString(16))
+    // const searchFn = async (block) => {
+    //     const lastUpdate = await bs[block].s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate;
+    //     const stemScale = await bs[block].s.season.stemScaleSeason;
+    //     console.log(lastUpdate, stemScale);
+    //     return stemScale > 0n && lastUpdate > stemScale ? -1 : 1
+    // };
+    // const result = await binarySearch(
+    //     19000000,
+    //     20079829, 
+    //     searchFn
+    // );
+    // console.log('------------------------------');
+    // console.log(`location: ${result.location}`);
+    // await searchFn(result.location - 1);
+    // await searchFn(result.location);
+    // await searchFn(result.location + 1);
+
+
 
     
     // console.log(await bs.s.season.stemStartSeason);

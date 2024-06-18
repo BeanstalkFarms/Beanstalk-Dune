@@ -16,7 +16,10 @@ let accountUpdates = {};
 let parseProgress = 0;
 let stemTips = {};
 
-const EXPORT_BLOCK = 20080444;
+const EXPORT_BLOCK = 17672066; // main file is 20087633
+
+const specificWallet = '0x9c88cd7743fbb32d07ed6dd064ac71c6c4e70753';
+const dataFile = '17672066';
 
 // Equivalent to LibBytes.packAddressAndStem
 function packAddressAndStem(address, stem) {
@@ -104,7 +107,9 @@ async function checkWallets(deposits) {
       let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
       // console.log(mowStem, Object.keys(deposits[depositor][token]));
       if (
-        (accountUpdates[depositor] < stemScaleSeason && accountUpdates[depositor] > 0)
+        // If stemScaleSeason is unset, then that upgrade hasnt happened yet and thus the user hasnt migrated
+        stemScaleSeason == 0
+        || (accountUpdates[depositor] < stemScaleSeason && accountUpdates[depositor] > 0)
         // Edge case for when user update and stem scale occurred at the same season
         || (accountUpdates[depositor] == stemScaleSeason && mowStem > 0 && stemTips[token] / mowStem >= BigInt(10 ** 6))
       ) {
@@ -158,10 +163,20 @@ async function getContractStalk(account) {
   const [storage, germinating, doneGerminating] = await Promise.all([
     bs.s.a[account].s.stalk,
     retryable(async () => {
-      return BigInt(await beanstalk.callStatic.balanceOfGerminatingStalk(account, { blockTag: EXPORT_BLOCK }));
+      try {
+        return BigInt(await beanstalk.callStatic.balanceOfGerminatingStalk(account, { blockTag: EXPORT_BLOCK }));
+      } catch (e) {
+        // Germination may not be implemented yet
+        return 0n;
+      }
     }),
     retryable(async () => {
-      return BigInt((await beanstalk.callStatic.balanceOfFinishedGerminatingStalkAndRoots(account, { blockTag: EXPORT_BLOCK }))[0]);
+      try {
+        return BigInt((await beanstalk.callStatic.balanceOfFinishedGerminatingStalkAndRoots(account, { blockTag: EXPORT_BLOCK }))[0]);
+      } catch (e) {
+        // Germination may not be implemented yet
+        return 0n;
+      }
     })
   ]);
   return storage + germinating + doneGerminating;
@@ -172,14 +187,12 @@ async function getContractStalk(account) {
   beanstalk = await asyncBeanstalkContractGetter();
   bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, EXPORT_BLOCK);
 
-  // const specificWallet = '0xbd80cee1d9ebe79a2005fc338c9a49b2764cfc36';
-
   // const depositId = packAddressAndStem('0x1bea0050e63e05fbb5d8ba2f10cf5800b6224449', -18632000000);
   // console.log('silo v3', await bs.s.a[specificWallet].legacyV3Deposits[depositId].amount);
   // console.log('silo v3.1', await bs.s.a[specificWallet].deposits[depositId].amount);
 
   // https://dune.com/queries/3819175
-  const fileStream = fs.createReadStream(`${__dirname}/data/deposit-stems.csv`);
+  const fileStream = fs.createReadStream(`${__dirname}/data/deposit-stems${dataFile}.csv`);
   const rl = readline.createInterface({
     input: fileStream,
     crlfDelay: Infinity
@@ -188,25 +201,29 @@ async function getContractStalk(account) {
   const deposits = {};
   console.log('Reading deposits data from file');
   for await (const line of rl) {
-    // if (line.includes(specificWallet)) {
+    if (!specificWallet || line.includes(specificWallet)) {
       await parseLine(deposits, line);
-    // }
+    }
   }
   process.stdout.write('\n');
   console.log(`Finished processing ${parseProgress} entries`);
 
-  ///
-  console.log(`Checking ${Object.keys(deposits).length} wallets`);
-  const results = await checkWallets(deposits);
-  await fs.promises.writeFile('results/stalk-audit.json', JSON.stringify(results, bigintHex, 2));
+  if (!specificWallet) {
+    // Check all wallets and output to file
+    console.log(`Checking ${Object.keys(deposits).length} wallets`);
+    const results = await checkWallets(deposits);
+    await fs.promises.writeFile(`results/stalk-audit${dataFile}.json`, JSON.stringify(results, bigintHex, 2));
 
-  const formatted = Object.entries(results).filter(([k, v]) =>
-    results[k].raw.discrepancy !== 0n
-  ).sort(([_, a], [_1, b]) =>
-    Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
-  );
-  await fs.promises.writeFile('results/stalk-audit-formatted.json', JSON.stringify(formatted, bigintHex, 2));
-  ///
-  // const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
-  // console.log(JSON.stringify(results, bigintHex, 2));
+    const formatted = Object.entries(results).filter(([k, v]) =>
+      results[k].raw.discrepancy !== 0n
+    ).sort(([_, a], [_1, b]) =>
+      Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
+    );
+    await fs.promises.writeFile(`results/stalk-audit-formatted${dataFile}.json`, JSON.stringify(formatted, bigintHex, 2));
+  } else {
+    // Check the specified wallet only and do not write output to the file
+    const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
+    console.log(JSON.stringify(results, bigintHex, 2));
+  }
+  
 })();

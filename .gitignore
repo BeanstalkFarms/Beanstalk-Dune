@@ -5,3 +5,4 @@ results/*
 !results/sample.csv
 .DS_Store
 test/random.js
+src/external-use/data
