@@ -258,7 +258,7 @@ async function contractData() {
     // console.log(await beanlusd.callStatic.fee());
 
     const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
-    console.log('slot', bs.s.a['0x9c88cD7743FBb32d07ED6DD064aC71c6C4E70753'].s.stalk.slot.toString(16));
+    console.log('slot', bs.s.a['0xe381ceb106717c176013adfce95f9957b5ea3da9'].s.stalk.slot.toString(16));
     // console.log('slot', bs.s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate.slot.toString(16))
     // const searchFn = async (block) => {
     //     const lastUpdate = await bs[block].s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate;

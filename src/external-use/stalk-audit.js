@@ -16,10 +16,10 @@ let accountUpdates = {};
 let parseProgress = 0;
 let stemTips = {};
 
-const EXPORT_BLOCK = 17672066; // main file is 20087633
+const EXPORT_BLOCK = 20000000; // main file is 20087633
 
-const specificWallet = '0x9c88cd7743fbb32d07ed6dd064ac71c6c4e70753';
-const dataFile = '17672066';
+const specificWallet = '0xab557f77ef6d758a18df60acfacb1d5fee4c09c2';
+const dataFile = '20000000';
 
 // Equivalent to LibBytes.packAddressAndStem
 function packAddressAndStem(address, stem) {
@@ -116,17 +116,21 @@ async function checkWallets(deposits) {
         mowStem = scaleStem(mowStem);
       }
       // console.log(accountUpdates[depositor], stemScaleSeason);
+      // console.log('total token bdv (mowStatuses)', await bs.s.a[depositor].mowStatuses[token].bdv, await bs.s.a[depositor].mowStatuses[token].lastStem);
 
       let netTokenStalk = 0n;
+      let undivided = 0n;
       for (const stem in deposits[depositor][token]) {
         const stemDelta = mowStem - BigInt(stem);
         // Deposit stalk = grown + base stalk
         // stems have 6 precision, though 10 is needed to grow one stalk. 10 + 6 - 6 => 10 precision for stalk
         netTokenStalk += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv / BigInt(10 ** 6);
+        undivided += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv;
         // console.log(`token: ${token}, stem: ${stem}${!deposits[depositor][token][stem].isMigrated3_1 ? '(scaled)' : ''}, mowStem: ${mowStem}, bdv: ${deposits[depositor][token][stem].bdv}`);
       }
       netDepositorStalk += netTokenStalk;
       results[depositor].breakdown[token] = netTokenStalk;
+      // console.log('undivided result', netTokenStalk, undivided / BigInt(10 ** 6));
     }
 
     results[depositor].depositStalk = netDepositorStalk;
@@ -192,7 +196,7 @@ async function getContractStalk(account) {
   // console.log('silo v3.1', await bs.s.a[specificWallet].deposits[depositId].amount);
 
   // https://dune.com/queries/3819175
-  const fileStream = fs.createReadStream(`${__dirname}/data/deposit-stems${dataFile}.csv`);
+  const fileStream = fs.createReadStream(`${__dirname}/data/stems/deposit-stems${dataFile}.csv`);
   const rl = readline.createInterface({
     input: fileStream,
     crlfDelay: Infinity
@@ -212,14 +216,14 @@ async function getContractStalk(account) {
     // Check all wallets and output to file
     console.log(`Checking ${Object.keys(deposits).length} wallets`);
     const results = await checkWallets(deposits);
-    await fs.promises.writeFile(`results/stalk-audit${dataFile}.json`, JSON.stringify(results, bigintHex, 2));
+    await fs.promises.writeFile(`results/stalk-audit/stalk-audit${dataFile}.json`, JSON.stringify(results, bigintHex, 2));
 
     const formatted = Object.entries(results).filter(([k, v]) =>
       results[k].raw.discrepancy !== 0n
     ).sort(([_, a], [_1, b]) =>
       Math.abs(parseFloat(b.formatted.discrepancy.replace(/,/g, ''))) - Math.abs(parseFloat(a.formatted.discrepancy.replace(/,/g, '')))
     );
-    await fs.promises.writeFile(`results/stalk-audit-formatted${dataFile}.json`, JSON.stringify(formatted, bigintHex, 2));
+    await fs.promises.writeFile(`results/stalk-audit/stalk-audit-formatted${dataFile}.json`, JSON.stringify(formatted, bigintHex, 2));
   } else {
     // Check the specified wallet only and do not write output to the file
     const results = await checkWallets({[specificWallet]: deposits[specificWallet]});
@@ -227,3 +231,25 @@ async function getContractStalk(account) {
   }
   
 })();
+
+function findDiscrepancyChanges() {
+
+  const audit18 = require('../../results/stalk-audit/stalk-audit18000000.json');
+  const auditNow = require('../../results/stalk-audit/stalk-audit.json');
+
+  for (const account in audit18) {
+    if (!auditNow[account]) {
+      console.log('account no longer in output today', account);
+    } else if (audit18[account].raw.discrepancy !== auditNow[account].raw.discrepancy
+        // Ignore ebip17 fixes
+        && auditNow[account].formatted.discrepancy === '0'
+    ) {
+      // Log increasing discrepancies
+      const diff = parseInt(auditNow[account].raw.discrepancy, 16) - parseInt(audit18[account].raw.discrepancy, 16);
+      if (diff > 0) {
+        console.log('account discrepancy didn\'t match', account, diff);
+      }
+    }
+  }
+}
+// findDiscrepancyChanges();
