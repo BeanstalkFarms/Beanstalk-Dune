@@ -14,7 +14,7 @@ In Solidity, you might write something like:
 
 ```
 uint256 stalk = s.s.stalk;
-uint256 userPlotAmount = s.a[account].plots[index].amount
+uint256 userPlotAmount = s.a[account].plots[index].amount;
 ```
 
 To achieve this in JavaScript, now we can write:
