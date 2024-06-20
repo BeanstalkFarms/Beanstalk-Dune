@@ -259,6 +259,7 @@ async function contractData() {
 
     const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
     console.log('slot', bs.s.a['0xe381ceb106717c176013adfce95f9957b5ea3da9'].s.stalk.slot.toString(16));
+    asyncBeanstalkContractGetter().then(b => b.callStatic.paused()).then(console.log);
     // console.log('slot', bs.s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate.slot.toString(16))
     // const searchFn = async (block) => {
     //     const lastUpdate = await bs[block].s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate;

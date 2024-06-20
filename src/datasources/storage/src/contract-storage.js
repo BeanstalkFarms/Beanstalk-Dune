@@ -11,10 +11,6 @@ function transformMembersList(members) {
   return retval;
 }
 
-function copy(obj) {
-  return JSON.parse(JSON.stringify(obj));
-}
-
 /**
  * Constructs a handler function to be used recursively with Proxy.
  * This allows accessing contract storage much like one would in solidity.
@@ -25,7 +21,8 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
   const getStorageAt = (storageSlot) => retryable(() => provider.getStorageAt(contractAddress, storageSlot, blockNumber));
   const handler = {
     get: function(target, property) {
-      if (['__storageSlot', '__currentType', 'then'].includes(property)) {
+      if (Object.keys(target).includes(property)) {
+        // Passthrough for explicitly defined fields
         return target[property];
       } else {
         // console.debug(`Current type: ${target.__currentType}\nCurrent slot: ${target.__storageSlot.toString(16)}\nSeeking property: ${property}`)
@@ -39,13 +36,13 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
           if (!field) {
             throw new Error(`Unrecognized property \`${property}\` on \`${target.__currentType}\`. Please check the supplied storageLayout file.`);
           }
-          returnProxy = new Proxy(copy(types[field.type]), handler);
+          returnProxy = new Proxy({}, handler);
           returnProxy.__storageSlot = target.__storageSlot + BigInt(parseInt(field.slot));
           returnProxy.__currentType = field.type;
           slotOffset = field.offset;
         } else if (currentType.hasOwnProperty('value')) {
           // Mapping
-          returnProxy = new Proxy(copy(types[currentType.value]), handler);
+          returnProxy = new Proxy({}, handler);
           let keyType = currentType.key.slice(2); // remove the "t_"
           keyType = keyType.includes('contract') ? 'address' : keyType;
           const encoded = abiCoder.encode([keyType, 'uint256'], [property, "0x" + target.__storageSlot.toString(16)]);
@@ -54,7 +51,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
           returnProxy.__currentType = currentType.value;
         } else if (currentType.encoding === 'dynamic_array') {
           // Dynamic array
-          returnProxy = new Proxy(copy(types[currentType.base]), handler);
+          returnProxy = new Proxy({}, handler);
           const encoded = abiCoder.encode(['uint256'], ["0x" + target.__storageSlot.toString(16)]);
           const keccak = ethers.keccak256(encoded);
           returnProxy.__storageSlot = BigInt(keccak) + BigInt(property);
@@ -63,7 +60,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
           // Fixed array
           const arrayBase = types[currentType.base];
           const arraySlots = slotsForArrayIndex(parseInt(property), parseInt(arrayBase.numberOfBytes));
-          returnProxy = new Proxy(copy(arrayBase), handler);
+          returnProxy = new Proxy({}, handler);
           returnProxy.__storageSlot = target.__storageSlot + BigInt(arraySlots.slot);
           returnProxy.__currentType = currentType.base;
           slotOffset = arraySlots.slotOffset;
@@ -122,6 +119,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
           // Since at this point we are operating on an array, we can assume that "then" won't
           // collide with a variable name (i.e. can't access property .then on an array in solidity)
           returnProxy.then = makeResultThenable([], 0);
+          returnProxy.slot = returnProxy.__storageSlot;
 
         } else if (!(returnType.hasOwnProperty('members') || returnType.hasOwnProperty('value'))) {
           // There are no further members, therefore this must be the end.
@@ -198,7 +196,7 @@ class ContractStorage {
           throw new Error(`Unrecognized top-level property \`${property}\`. Please check the supplied storageLayout file.`);
         }
 
-        const returnProxy = new Proxy(requestedField[0], fieldProxyHandler);
+        const returnProxy = new Proxy({}, fieldProxyHandler);
         returnProxy.__storageSlot = BigInt(0);
         returnProxy.__currentType = requestedField[0].type;
         return returnProxy;

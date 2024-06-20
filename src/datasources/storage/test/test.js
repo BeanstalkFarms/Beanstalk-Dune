@@ -40,7 +40,7 @@ const ContractStorage = require("../src/contract-storage.js");
 
   // Fixed - whole array (multiple slots)
   const deprecated = await beanstalk.s.deprecated;
-  console.log('who knows whats in here (deprecated)', deprecated);
+  console.log('who knows whats in here (deprecated)', deprecated, beanstalk.s.deprecated.slot);
   const deprecated12 = await beanstalk.s.deprecated[12];
   console.log('deprecated[12]:', deprecated12);
   /// EDIT: no longer necessary now that using BigInt
