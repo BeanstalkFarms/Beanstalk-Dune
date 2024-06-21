@@ -1,25 +1,27 @@
 const fs = require('fs');
 const readline = require('readline');
-const { BEANSTALK, BEANWETH } = require('../addresses.js');
+const { BEANSTALK, BEAN, UNRIPE_BEAN, UNRIPE_LP, BEAN3CRV, BEANWETH } = require('../addresses.js');
 const storageLayout = require('../contracts/beanstalk/storageLayout.json');
 const ContractStorage = require('../datasources/storage/src/contract-storage');
 const { providerThenable } = require('../provider');
-const { bigintHex } = require('../utils/json-formatter.js');
+const { bigintHex, bigintDecimal } = require('../utils/json-formatter.js');
 const { asyncBeanstalkContractGetter } = require('../datasources/contract-function.js');
 const retryable = require('../utils/retryable.js');
+const { tokenEq } = require('../utils/token.js');
 
 let beanstalk;
 let bs;
 
-let stemScaleSeason;
+let stemStartSeason; // For v2 -> v3
+let stemScaleSeason; // For v3 -> v3.1
 let accountUpdates = {};
 let parseProgress = 0;
 let stemTips = {};
 
-const EXPORT_BLOCK = 20000000; // main file is 20087633
+const EXPORT_BLOCK = 20136600; // unlabeled file was 20087633
 
-const specificWallet = '0xab557f77ef6d758a18df60acfacb1d5fee4c09c2';
-const dataFile = '20000000';
+const specificWallet = '0x006b4b47c7f404335c87e85355e217305f97e789';
+const dataFile = '20136600';
 
 // Equivalent to LibBytes.packAddressAndStem
 function packAddressAndStem(address, stem) {
@@ -28,45 +30,78 @@ function packAddressAndStem(address, stem) {
   return (addressBigInt << BigInt(96)) | (stemBigInt & BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFF'));
 }
 
-async function parseLine(deposits, line) {
+// Equivalent to LibLegacyTokenSilo.seasonToStem
+function seasonToStem(season, seedsPerBdv) {
+  return (BigInt(season) - stemStartSeason) * seedsPerBdv;
+}
+
+// Equivalent to LibLegacyTokenSilo.getLegacySeedsPerToken
+function getLegacySeedsPerToken(token) {
+  if (tokenEq(token, BEAN)) {
+    return BigInt(2 * 10 ** 6);
+  } else if (tokenEq(token, UNRIPE_BEAN)) {
+    return BigInt(2 * 10 ** 6);
+  } else if (tokenEq(token, UNRIPE_LP)) {
+    return BigInt(4 * 10 ** 6);
+  } else if (tokenEq(token, BEAN3CRV)) {
+    return BigInt(4 * 10 ** 6);
+  }
+  return 0;
+}
+
+// Silo v3 migrated stems
+async function processLine(deposits, line) {
   const elem = line.split(',');
   if (elem[0] == 'account') {
     // Skip first line of csv
     return;
   }
 
-  let [account, _, token, stem, amount, bdv] = elem;
-
-  // Get info that is required to process the appropriate stems
-  if (!stemScaleSeason) {
-    stemScaleSeason = await bs.s.season.stemScaleSeason;
-  }
-
-  if (!accountUpdates[account]) {
-    accountUpdates[account] = await bs.s.a[account].lastUpdate;
-  }
-
-  if (!stemTips[token]) {
-    stemTips[token] = await retryable(async () => {
-      return BigInt(await beanstalk.callStatic.stemTipForToken(token, { blockTag: EXPORT_BLOCK }))
-    });
-  }
-
-  // Transform stem if needed
-  const { actualStem, isMigrated3_1 } = await transformStem(account, token, BigInt(stem));
+  let [account, token, stem, season, amount, bdv] = elem;
 
   if (!deposits[account]) {
     deposits[account] = {}
   }
 
+  let version = '';
+
+  if (stem !== '') {
+    // Silo v3 migrated stems
+
+    // Get info that is required to process the appropriate stems
+    // This is needed for the v3.1 edgecase
+    if (!stemTips[token]) {
+      stemTips[token] = await retryable(async () => {
+        return BigInt(await beanstalk.callStatic.stemTipForToken(token, { blockTag: EXPORT_BLOCK }))
+      });
+    }
+
+    // Transform stem if needed
+    const { actualStem, isMigrated3_1 } = await transformStem(account, token, BigInt(stem));
+    stem = actualStem;
+    version = isMigrated3_1 ? 'v3.1' : 'v3';
+
+  } else {
+    // Silo v2 season of deposit. The RemoveDeposit(s) events are missing bdv from
+    // the event data, so the information must be retrieved from storage directly. The provided entires are
+    // all tokens/season numbers for each user. Pre-replant events are not included.
+    // In theory there shouldnt be any users here who also have a v3 deposit.
+    stem = seasonToStem(season, getLegacySeedsPerToken(token));
+    amount = await bs.s.a[account].legacyV2Deposits[token][season].amount;
+    bdv = await bs.s.a[account].legacyV2Deposits[token][season].bdv;
+    version = 'v2';
+  }
+
   if (!deposits[account][token]) {
     deposits[account][token] = {};
   }
-  deposits[account][token][actualStem] = {
+  deposits[account][token][stem] = {
     amount: BigInt(amount),
     bdv: BigInt(bdv),
-    isMigrated3_1
+    version
   };
+  // if (parseProgress >= 2)
+  // console.log(JSON.stringify(deposits, bigintDecimal, 2));
 
   process.stdout.write(`\r${++parseProgress} / ?`);
 }
@@ -99,6 +134,7 @@ async function checkWallets(deposits) {
   for (let i = 0; i < depositors.length; ++i) {
 
     const depositor = depositors[i];
+    accountUpdates[depositor] = await bs.s.a[depositor].lastUpdate;
     results[depositor] = { breakdown: {} };
 
     let netDepositorStalk = 0n;
@@ -126,7 +162,7 @@ async function checkWallets(deposits) {
         // stems have 6 precision, though 10 is needed to grow one stalk. 10 + 6 - 6 => 10 precision for stalk
         netTokenStalk += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv / BigInt(10 ** 6);
         undivided += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv;
-        // console.log(`token: ${token}, stem: ${stem}${!deposits[depositor][token][stem].isMigrated3_1 ? '(scaled)' : ''}, mowStem: ${mowStem}, bdv: ${deposits[depositor][token][stem].bdv}`);
+        // console.log(`token: ${token}, stem: ${stem}${deposits[depositor][token][stem].version !== 'v3.1' ? '(scaled)' : ''}, mowStem: ${mowStem}, bdv: ${deposits[depositor][token][stem].bdv}`);
       }
       netDepositorStalk += netTokenStalk;
       results[depositor].breakdown[token] = netTokenStalk;
@@ -190,6 +226,8 @@ async function getContractStalk(account) {
 
   beanstalk = await asyncBeanstalkContractGetter();
   bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout, EXPORT_BLOCK);
+  stemStartSeason = await bs.s.season.stemStartSeason;
+  stemScaleSeason = await bs.s.season.stemScaleSeason;
 
   // const depositId = packAddressAndStem('0x1bea0050e63e05fbb5d8ba2f10cf5800b6224449', -18632000000);
   // console.log('silo v3', await bs.s.a[specificWallet].legacyV3Deposits[depositId].amount);
@@ -206,7 +244,7 @@ async function getContractStalk(account) {
   console.log('Reading deposits data from file');
   for await (const line of rl) {
     if (!specificWallet || line.includes(specificWallet)) {
-      await parseLine(deposits, line);
+      await processLine(deposits, line);
     }
   }
   process.stdout.write('\n');
