@@ -12,6 +12,14 @@ const { tokenEq } = require('../utils/token.js');
 let beanstalk;
 let bs;
 
+// Exploit migration
+const INITIAL_RECAP = BigInt(185564685220298701);
+const AMOUNT_TO_BDV_BEAN_ETH = BigInt(119894802186829);
+const AMOUNT_TO_BDV_BEAN_3CRV = BigInt(992035);
+const AMOUNT_TO_BDV_BEAN_LUSD = BigInt(983108);
+const UNRIPE_CURVE_BEAN_METAPOOL = '0x3a70DfA7d2262988064A2D051dd47521E43c9BdD';
+const UNRIPE_CURVE_BEAN_LUSD_POOL = '0xD652c40fBb3f06d6B58Cb9aa9CFF063eE63d465D';
+
 let stemStartSeason; // For v2 -> v3
 let stemScaleSeason; // For v3 -> v3.1
 let accountUpdates = {};
@@ -20,7 +28,7 @@ let stemTips = {};
 
 const EXPORT_BLOCK = 20136600; // unlabeled file was 20087633
 
-const specificWallet = '0x006b4b47c7f404335c87e85355e217305f97e789';
+const specificWallet = '0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';
 const dataFile = '20136600';
 
 // Equivalent to LibBytes.packAddressAndStem
@@ -49,6 +57,27 @@ function getLegacySeedsPerToken(token) {
   return 0;
 }
 
+async function getBeanEthUnripeLP(account, season) {
+  return {
+    amount: (await bs.s.a[account].lp.deposits[season]) * AMOUNT_TO_BDV_BEAN_ETH / BigInt(10 ** 18),
+    bdv: (await bs.s.a[account].lp.depositSeeds[season]) / BigInt(4)
+  }
+}
+
+async function getBean3CrvUnripeLP(account, season) {
+  return {
+    amount: (await bs.s.a[account].legacyV2Deposits[UNRIPE_CURVE_BEAN_METAPOOL][season].amount) * AMOUNT_TO_BDV_BEAN_3CRV / BigInt(10 ** 18),
+    bdv: await bs.s.a[account].legacyV2Deposits[UNRIPE_CURVE_BEAN_METAPOOL][season].bdv
+  }
+}
+
+async function getBeanLusdUnripeLP(account, season) {
+  return {
+    amount: (await bs.s.a[account].legacyV2Deposits[UNRIPE_CURVE_BEAN_LUSD_POOL][season].amount) * AMOUNT_TO_BDV_BEAN_LUSD / BigInt(10 ** 18),
+    bdv: await bs.s.a[account].legacyV2Deposits[UNRIPE_CURVE_BEAN_LUSD_POOL][season].bdv
+  }
+}
+
 // Silo v3 migrated stems
 async function processLine(deposits, line) {
   const elem = line.split(',');
@@ -58,10 +87,6 @@ async function processLine(deposits, line) {
   }
 
   let [account, token, stem, season, amount, bdv] = elem;
-
-  if (!deposits[account]) {
-    deposits[account] = {}
-  }
 
   let version = '';
 
@@ -82,16 +107,37 @@ async function processLine(deposits, line) {
     version = isMigrated3_1 ? 'v3.1' : 'v3';
 
   } else {
-    // Silo v2 season of deposit. The RemoveDeposit(s) events are missing bdv from
+    // Deposits by season. The RemoveDeposit(s) events are missing bdv from
     // the event data, so the information must be retrieved from storage directly. The provided entires are
     // all tokens/season numbers for each user. Pre-replant events are not included.
     // In theory there shouldnt be any users here who also have a v3 deposit.
     stem = seasonToStem(season, getLegacySeedsPerToken(token));
     amount = await bs.s.a[account].legacyV2Deposits[token][season].amount;
     bdv = await bs.s.a[account].legacyV2Deposits[token][season].bdv;
-    version = 'v2';
+    if (season < 6075) {
+      if (tokenEq(token, UNRIPE_BEAN)) {
+        // LibUnripeSilo.unripeBeanDeposit
+        const legacyAmount = await bs.s.a[account].bean.deposits[season];
+        amount = amount + legacyAmount;
+        bdv = bdv + legacyAmount * INITIAL_RECAP / BigInt(10 ** 18)
+      } else if (tokenEq(token, UNRIPE_LP)) {
+        // LibUnripeSilo.unripeLPDeposit
+        const { amount: ethAmount, bdv: ethBdv } = await getBeanEthUnripeLP(account, season);
+        const { amount: crvAmount, bdv: crvBdv } = await getBean3CrvUnripeLP(account, season);
+        const { amount: lusdAmount, bdv: lusdBdv } = await getBeanLusdUnripeLP(account, season);
+        
+        amount = amount + ethAmount + crvAmount + lusdAmount;
+        const legBdv = (ethBdv + crvBdv + lusdBdv) * INITIAL_RECAP / BigInt(10 ** 18);
+        bdv = bdv + legBdv;
+      }
+    }
+    // console.log(account, token, season, amount, bdv);
+    version = 'season';
   }
 
+  if (!deposits[account]) {
+    deposits[account] = {};
+  }
   if (!deposits[account][token]) {
     deposits[account][token] = {};
   }
@@ -100,8 +146,6 @@ async function processLine(deposits, line) {
     bdv: BigInt(bdv),
     version
   };
-  // if (parseProgress >= 2)
-  // console.log(JSON.stringify(deposits, bigintDecimal, 2));
 
   process.stdout.write(`\r${++parseProgress} / ?`);
 }
@@ -157,6 +201,9 @@ async function checkWallets(deposits) {
       let netTokenStalk = 0n;
       let undivided = 0n;
       for (const stem in deposits[depositor][token]) {
+        if (deposits[depositor][token][stem].version === 'season') {
+          mowStem = seasonToStem(accountUpdates[depositor], getLegacySeedsPerToken(token));
+        }
         const stemDelta = mowStem - BigInt(stem);
         // Deposit stalk = grown + base stalk
         // stems have 6 precision, though 10 is needed to grow one stalk. 10 + 6 - 6 => 10 precision for stalk
