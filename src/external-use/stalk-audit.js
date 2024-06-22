@@ -26,10 +26,13 @@ let accountUpdates = {};
 let parseProgress = 0;
 let stemTips = {};
 
-const EXPORT_BLOCK = 20136600; // unlabeled file was 20087633
+const REPLANT_BLOCK = 15278963;
+const SILO_V3_BLOCK = 17671557;
+const EXPORT_BLOCK = 16000000; // unlabeled file was 20087633
 
-const specificWallet = '0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';
-const dataFile = '20136600';
+const WALLET_LIMIT = undefined;
+const specificWallet = '0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';//'0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';
+const dataFile = '16000000';
 
 // Equivalent to LibBytes.packAddressAndStem
 function packAddressAndStem(address, stem) {
@@ -87,6 +90,11 @@ async function processLine(deposits, line) {
   }
 
   let [account, token, stem, season, amount, bdv] = elem;
+
+  // For testing on a subset of wallets
+  if (Object.keys(deposits).length > WALLET_LIMIT && !Object.keys(deposits).includes(account)) {
+    return;
+  }
 
   let version = '';
 
@@ -150,6 +158,26 @@ async function processLine(deposits, line) {
   process.stdout.write(`\r${++parseProgress} / ?`);
 }
 
+// Now that all deposits are populated, calculate total deposited amount/bdv for each token per user
+function calcDepositTotals(deposits) {
+  for (const account in deposits) {
+    deposits[account].totals = {};
+    for (const token in deposits[account]) {
+      if (token == 'totals') {
+        continue;
+      }
+      deposits[account].totals[token] = {
+        amount: 0n,
+        bdv: 0n
+      };
+      for (const stem in deposits[account][token]) {
+        deposits[account].totals[token].amount += deposits[account][token][stem].amount;
+        deposits[account].totals[token].bdv += deposits[account][token][stem].bdv;
+      }
+    }
+  }
+}
+
 // Transforms the stem according to silo v3.1
 function scaleStem(stem) {
   return stem * BigInt(10 ** 6);
@@ -183,6 +211,9 @@ async function checkWallets(deposits) {
 
     let netDepositorStalk = 0n;
     for (const token in deposits[depositor]) {
+      if (token == 'totals') {
+        continue;
+      }
 
       let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
       // console.log(mowStem, Object.keys(deposits[depositor][token]));
@@ -289,13 +320,21 @@ async function getContractStalk(account) {
 
   const deposits = {};
   console.log('Reading deposits data from file');
+  WALLET_LIMIT && console.log('WALLET_LIMIT:', WALLET_LIMIT);
   for await (const line of rl) {
     if (!specificWallet || line.includes(specificWallet)) {
       await processLine(deposits, line);
     }
   }
+  calcDepositTotals(deposits);
+  if (specificWallet) {
+    console.log(JSON.stringify(deposits, bigintDecimal, 2));
+  }
   process.stdout.write('\n');
   console.log(`Finished processing ${parseProgress} entries`);
+  if (!specificWallet) {
+    await fs.promises.writeFile(`results/stalk-audit/stalk-audit-deposits${dataFile}.json`, JSON.stringify(deposits, bigintDecimal, 2));
+  }
 
   if (!specificWallet) {
     // Check all wallets and output to file
@@ -338,3 +377,17 @@ function findDiscrepancyChanges() {
   }
 }
 // findDiscrepancyChanges();
+
+function findSeasonsDiscrepancies() {
+  const deposits = require('../../results/stalk-audit/stalk-audit-deposits20136600.json');
+  const audit = require('../../results/stalk-audit/stalk-audit-formatted20136600.json');
+
+  for (const entry of audit) {
+    if (!entry[1].raw.discrepancy.startsWith("-")) {
+      if (JSON.stringify(deposits[entry[0]]).includes("season")) {
+        console.log('found account', entry[0]);
+      }
+    }
+  }
+}
+// findSeasonsDiscrepancies();

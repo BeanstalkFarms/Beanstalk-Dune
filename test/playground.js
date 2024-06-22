@@ -14,7 +14,7 @@ const beanstalkInitAbi = require('../src/contracts/beanstalk/Beanstalk-Init.json
 const calculationsCurveAbi = require('../src/contracts/curve/CalculationsCurve.json');
 const { identifyContracts } = require('../src/external-use/participant-contracts.js');
 const { participantAddresses } = require('../src/external-use/data/participant-addresses.js');
-const { binarySearch } = require('../src/utils/binary-search.js');
+const { binarySearch, findAllValueChanges } = require('../src/utils/binary-search.js');
 
 async function logTestInfo() {
     // recent mints started: 18963933
@@ -258,9 +258,9 @@ async function contractData() {
     // console.log(await beanlusd.callStatic.fee());
 
     const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
-    console.log('slot', bs.s.a['0xe381ceb106717c176013adfce95f9957b5ea3da9'].s.stalk.slot.toString(16));
-    asyncBeanstalkContractGetter().then(b => b.callStatic.paused()).then(console.log);
-    console.log(await bs.s.a['0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8'].bean.deposited);
+    // console.log('slot', bs.s.a['0xe381ceb106717c176013adfce95f9957b5ea3da9'].s.stalk.slot.toString(16));
+    // asyncBeanstalkContractGetter().then(b => b.callStatic.paused()).then(console.log);
+    // console.log(await bs.s.a['0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8'].bean.deposited);
     // console.log('slot', bs.s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate.slot.toString(16))
     // const searchFn = async (block) => {
     //     const lastUpdate = await bs[block].s.a['0x3d7cde7ea3da7fdd724482f11174cbc0b389bd8b'].lastUpdate;
@@ -371,6 +371,11 @@ async function contractData() {
     //     console.log
     // );
     // console.log(`found at ${searchResult.location}`)
+
+    const valueChanges = await findAllValueChanges(
+        12900000, 18000000, (block) => bs[block].s.a['0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8'].s.seeds, undefined, console.log
+    );
+    console.log(valueChanges);
 
     // console.log(await bs[100001].s.s.stalk);
     // console.log(await bs.s.s.stalk);
