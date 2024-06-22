@@ -24,14 +24,16 @@ let stemStartSeason; // For v2 -> v3
 let stemScaleSeason; // For v3 -> v3.1
 let accountUpdates = {};
 let parseProgress = 0;
+let walletProgress = 0;
 let stemTips = {};
 
 const REPLANT_BLOCK = 15278963;
 const SILO_V3_BLOCK = 17671557;
 const EXPORT_BLOCK = 16000000; // unlabeled file was 20087633
 
+const BATCH_SIZE = 100;
 const WALLET_LIMIT = undefined;
-const specificWallet = '0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';//'0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';
+const specificWallet = undefined;//'0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';
 const dataFile = '16000000';
 
 // Equivalent to LibBytes.packAddressAndStem
@@ -81,27 +83,35 @@ async function getBeanLusdUnripeLP(account, season) {
   }
 }
 
+async function preProcessInit(deposits, lines) {
+  for (const line of lines) {
+    const [account, token] = line.split(',');
+
+    if (Object.keys(deposits).length >= WALLET_LIMIT && !Object.keys(deposits).includes(account)) {
+      continue;
+    }
+
+    if (!deposits[account]) {
+      deposits[account] = {};
+    }
+    if (!deposits[account][token]) {
+      deposits[account][token] = {};
+    }
+  }
+}
+
 // Silo v3 migrated stems
 async function processLine(deposits, line) {
-  const elem = line.split(',');
-  if (elem[0] == 'account') {
-    // Skip first line of csv
-    return;
-  }
-
-  let [account, token, stem, season, amount, bdv] = elem;
+  let [account, token, stem, season, amount, bdv] = line.split(',');
 
   // For testing on a subset of wallets
-  if (Object.keys(deposits).length > WALLET_LIMIT && !Object.keys(deposits).includes(account)) {
+  if (Object.keys(deposits).length >= WALLET_LIMIT && !Object.keys(deposits).includes(account)) {
     return;
   }
 
   let version = '';
 
   if (stem !== '') {
-    // Silo v3 migrated stems
-
-    // Get info that is required to process the appropriate stems
     // This is needed for the v3.1 edgecase
     if (!stemTips[token]) {
       stemTips[token] = await retryable(async () => {
@@ -109,7 +119,7 @@ async function processLine(deposits, line) {
       });
     }
 
-    // Transform stem if needed
+    // Silo v3 migrated stems. Transform to v3.1 if needed
     const { actualStem, isMigrated3_1 } = await transformStem(account, token, BigInt(stem));
     stem = actualStem;
     version = isMigrated3_1 ? 'v3.1' : 'v3';
@@ -143,12 +153,6 @@ async function processLine(deposits, line) {
     version = 'season';
   }
 
-  if (!deposits[account]) {
-    deposits[account] = {};
-  }
-  if (!deposits[account][token]) {
-    deposits[account][token] = {};
-  }
   deposits[account][token][stem] = {
     amount: BigInt(amount),
     bdv: BigInt(bdv),
@@ -203,55 +207,9 @@ async function checkWallets(deposits) {
   const results = {};
   const depositors = Object.keys(deposits);
 
-  for (let i = 0; i < depositors.length; ++i) {
-
-    const depositor = depositors[i];
-    accountUpdates[depositor] = await bs.s.a[depositor].lastUpdate;
-    results[depositor] = { breakdown: {} };
-
-    let netDepositorStalk = 0n;
-    for (const token in deposits[depositor]) {
-      if (token == 'totals') {
-        continue;
-      }
-
-      let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
-      // console.log(mowStem, Object.keys(deposits[depositor][token]));
-      if (
-        // If stemScaleSeason is unset, then that upgrade hasnt happened yet and thus the user hasnt migrated
-        stemScaleSeason == 0
-        || (accountUpdates[depositor] < stemScaleSeason && accountUpdates[depositor] > 0)
-        // Edge case for when user update and stem scale occurred at the same season
-        || (accountUpdates[depositor] == stemScaleSeason && mowStem > 0 && stemTips[token] / mowStem >= BigInt(10 ** 6))
-      ) {
-        mowStem = scaleStem(mowStem);
-      }
-      // console.log(accountUpdates[depositor], stemScaleSeason);
-      // console.log('total token bdv (mowStatuses)', await bs.s.a[depositor].mowStatuses[token].bdv, await bs.s.a[depositor].mowStatuses[token].lastStem);
-
-      let netTokenStalk = 0n;
-      let undivided = 0n;
-      for (const stem in deposits[depositor][token]) {
-        if (deposits[depositor][token][stem].version === 'season') {
-          mowStem = seasonToStem(accountUpdates[depositor], getLegacySeedsPerToken(token));
-        }
-        const stemDelta = mowStem - BigInt(stem);
-        // Deposit stalk = grown + base stalk
-        // stems have 6 precision, though 10 is needed to grow one stalk. 10 + 6 - 6 => 10 precision for stalk
-        netTokenStalk += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv / BigInt(10 ** 6);
-        undivided += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv;
-        // console.log(`token: ${token}, stem: ${stem}${deposits[depositor][token][stem].version !== 'v3.1' ? '(scaled)' : ''}, mowStem: ${mowStem}, bdv: ${deposits[depositor][token][stem].bdv}`);
-      }
-      netDepositorStalk += netTokenStalk;
-      results[depositor].breakdown[token] = netTokenStalk;
-      // console.log('undivided result', netTokenStalk, undivided / BigInt(10 ** 6));
-    }
-
-    results[depositor].depositStalk = netDepositorStalk;
-    results[depositor].contractStalk = await getContractStalk(depositor);
-    results[depositor].discrepancy = results[depositor].depositStalk - results[depositor].contractStalk;
-
-    process.stdout.write(`\r${i + 1} / ${depositors.length}`);
+  for (let i = 0; i < depositors.length; i += BATCH_SIZE) {
+    const batch = depositors.slice(i, Math.min(i + BATCH_SIZE, depositors.length));
+    await Promise.all(batch.map(depositor => checkWallet(results, deposits, depositor)));
   }
   process.stdout.write('\n');
 
@@ -272,6 +230,56 @@ async function checkWallets(deposits) {
     };
     return result;
   }, {});
+}
+
+async function checkWallet(results, deposits, depositor) {
+
+  accountUpdates[depositor] = await bs.s.a[depositor].lastUpdate;
+  results[depositor] = { breakdown: {} };
+
+  let netDepositorStalk = 0n;
+  for (const token in deposits[depositor]) {
+    if (token == 'totals') {
+      continue;
+    }
+
+    let mowStem = await bs.s.a[depositor].mowStatuses[token].lastStem;
+    // console.log(mowStem, Object.keys(deposits[depositor][token]));
+    if (
+      // If stemScaleSeason is unset, then that upgrade hasnt happened yet and thus the user hasnt migrated
+      stemScaleSeason == 0
+      || (accountUpdates[depositor] < stemScaleSeason && accountUpdates[depositor] > 0)
+      // Edge case for when user update and stem scale occurred at the same season
+      || (accountUpdates[depositor] == stemScaleSeason && mowStem > 0 && stemTips[token] / mowStem >= BigInt(10 ** 6))
+    ) {
+      mowStem = scaleStem(mowStem);
+    }
+    // console.log(accountUpdates[depositor], stemScaleSeason);
+    // console.log('total token bdv (mowStatuses)', await bs.s.a[depositor].mowStatuses[token].bdv, await bs.s.a[depositor].mowStatuses[token].lastStem);
+
+    let netTokenStalk = 0n;
+    let undivided = 0n;
+    for (const stem in deposits[depositor][token]) {
+      if (deposits[depositor][token][stem].version === 'season') {
+        mowStem = seasonToStem(accountUpdates[depositor], getLegacySeedsPerToken(token));
+      }
+      const stemDelta = mowStem - BigInt(stem);
+      // Deposit stalk = grown + base stalk
+      // stems have 6 precision, though 10 is needed to grow one stalk. 10 + 6 - 6 => 10 precision for stalk
+      netTokenStalk += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv / BigInt(10 ** 6);
+      undivided += (stemDelta + 10000000000n) * deposits[depositor][token][stem].bdv;
+      // console.log(`token: ${token}, stem: ${stem}${deposits[depositor][token][stem].version !== 'v3.1' ? '(scaled)' : ''}, mowStem: ${mowStem}, bdv: ${deposits[depositor][token][stem].bdv}`);
+    }
+    netDepositorStalk += netTokenStalk;
+    results[depositor].breakdown[token] = netTokenStalk;
+    // console.log('undivided result', netTokenStalk, undivided / BigInt(10 ** 6));
+  }
+
+  results[depositor].depositStalk = netDepositorStalk;
+  results[depositor].contractStalk = await getContractStalk(depositor);
+  results[depositor].discrepancy = results[depositor].depositStalk - results[depositor].contractStalk;
+
+  process.stdout.write(`\r${++walletProgress} / ${Object.keys(deposits).length}`);
 }
 
 // Since we need to match the stalk + grown stalk by bdv against the contract values, need to include
@@ -307,10 +315,6 @@ async function getContractStalk(account) {
   stemStartSeason = await bs.s.season.stemStartSeason;
   stemScaleSeason = await bs.s.season.stemScaleSeason;
 
-  // const depositId = packAddressAndStem('0x1bea0050e63e05fbb5d8ba2f10cf5800b6224449', -18632000000);
-  // console.log('silo v3', await bs.s.a[specificWallet].legacyV3Deposits[depositId].amount);
-  // console.log('silo v3.1', await bs.s.a[specificWallet].deposits[depositId].amount);
-
   // https://dune.com/queries/3819175
   const fileStream = fs.createReadStream(`${__dirname}/data/stems/deposit-stems${dataFile}.csv`);
   const rl = readline.createInterface({
@@ -321,10 +325,21 @@ async function getContractStalk(account) {
   const deposits = {};
   console.log('Reading deposits data from file');
   WALLET_LIMIT && console.log('WALLET_LIMIT:', WALLET_LIMIT);
+
+  let linesBuffer = [];
   for await (const line of rl) {
-    if (!specificWallet || line.includes(specificWallet)) {
-      await processLine(deposits, line);
+    if (!line.includes('account') && (!specificWallet || line.includes(specificWallet))) {
+      linesBuffer.push(line);
     }
+    if (linesBuffer.length >= BATCH_SIZE) {
+      await preProcessInit(deposits, linesBuffer);
+      await Promise.all(linesBuffer.map(line => processLine(deposits, line)));
+      linesBuffer = [];
+    }
+  }
+  if (linesBuffer.length > 0) {
+    await preProcessInit(deposits, linesBuffer);
+    await Promise.all(linesBuffer.map(line => processLine(deposits, line)));
   }
   calcDepositTotals(deposits);
   if (specificWallet) {
