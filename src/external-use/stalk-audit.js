@@ -8,6 +8,7 @@ const { bigintHex, bigintDecimal } = require('../utils/json-formatter.js');
 const { asyncBeanstalkContractGetter } = require('../datasources/contract-function.js');
 const retryable = require('../utils/retryable.js');
 const { tokenEq } = require('../utils/token.js');
+const { version } = require('punycode');
 
 let beanstalk;
 let bs;
@@ -29,12 +30,12 @@ let stemTips = {};
 
 const REPLANT_BLOCK = 15278963;
 const SILO_V3_BLOCK = 17671557;
-const EXPORT_BLOCK = 16000000; // unlabeled file was 20087633
+const EXPORT_BLOCK = 17000000; // unlabeled file was 20087633
 
 const BATCH_SIZE = 100;
 const WALLET_LIMIT = undefined;
-const specificWallet = undefined;//'0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8';
-const dataFile = '16000000';
+const specificWallet = undefined;// '0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8'.toLowerCase();
+const dataFile = '17000000';
 
 // Equivalent to LibBytes.packAddressAndStem
 function packAddressAndStem(address, stem) {
@@ -45,21 +46,21 @@ function packAddressAndStem(address, stem) {
 
 // Equivalent to LibLegacyTokenSilo.seasonToStem
 function seasonToStem(season, seedsPerBdv) {
-  return (BigInt(season) - stemStartSeason) * seedsPerBdv;
+  return (BigInt(season) - stemStartSeason) * (seedsPerBdv * BigInt(10 ** 6));
 }
 
 // Equivalent to LibLegacyTokenSilo.getLegacySeedsPerToken
 function getLegacySeedsPerToken(token) {
   if (tokenEq(token, BEAN)) {
-    return BigInt(2 * 10 ** 6);
+    return 2n;
   } else if (tokenEq(token, UNRIPE_BEAN)) {
-    return BigInt(2 * 10 ** 6);
+    return 2n;
   } else if (tokenEq(token, UNRIPE_LP)) {
-    return BigInt(4 * 10 ** 6);
+    return 4n;
   } else if (tokenEq(token, BEAN3CRV)) {
-    return BigInt(4 * 10 ** 6);
+    return 4n;
   }
-  return 0;
+  return 0n;
 }
 
 async function getBeanEthUnripeLP(account, season) {
@@ -172,11 +173,16 @@ function calcDepositTotals(deposits) {
       }
       deposits[account].totals[token] = {
         amount: 0n,
-        bdv: 0n
+        bdv: 0n,
+        seeds: 0n
       };
       for (const stem in deposits[account][token]) {
         deposits[account].totals[token].amount += deposits[account][token][stem].amount;
         deposits[account].totals[token].bdv += deposits[account][token][stem].bdv;
+        if (deposits[account][token][stem].version === 'season') {
+          console.log(deposits[account][token][stem].bdv, getLegacySeedsPerToken(token) );
+          deposits[account].totals[token].seeds += deposits[account][token][stem].bdv * getLegacySeedsPerToken(token);
+        }
       }
     }
   }
@@ -278,6 +284,13 @@ async function checkWallet(results, deposits, depositor) {
   results[depositor].depositStalk = netDepositorStalk;
   results[depositor].contractStalk = await getContractStalk(depositor);
   results[depositor].discrepancy = results[depositor].depositStalk - results[depositor].contractStalk;
+
+  if (Object.values(deposits[depositor].totals).some(v => v.seeds > 0n)) {
+    results[depositor].depositSeeds = Object.values(deposits[depositor].totals).reduce(
+      (ans, next) => ans + next.seeds, 0n);
+    results[depositor].contractSeeds = await bs.s.a[depositor].s.seeds;
+    results[depositor].seedsDiscrepancy = results[depositor].depositSeeds - results[depositor].contractSeeds;
+  }
 
   process.stdout.write(`\r${++walletProgress} / ${Object.keys(deposits).length}`);
 }
