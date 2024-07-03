@@ -257,6 +257,7 @@ async function contractData() {
     // console.log(await bean3crv1.callStatic.fee());
     // console.log(await beanlusd.callStatic.fee());
 
+    const beanstalk = await asyncBeanstalkContractGetter();
     const bs = new ContractStorage(await providerThenable, BEANSTALK, storageLayout);
     // console.log('slot', bs.s.a['0xe381ceb106717c176013adfce95f9957b5ea3da9'].s.stalk.slot.toString(16));
     // asyncBeanstalkContractGetter().then(b => b.callStatic.paused()).then(console.log);
@@ -372,10 +373,22 @@ async function contractData() {
     // );
     // console.log(`found at ${searchResult.location}`)
 
-    const valueChanges = await findAllValueChanges(
-        12900000, 18000000, (block) => bs[block].s.a['0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8'].s.seeds, undefined, console.log
-    );
-    console.log(valueChanges);
+    // const valueChanges = await findAllValueChanges(
+    //     12900000, 18000000, (block) => bs[block].s.a['0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8'].s.seeds, undefined, console.log
+    // );
+    // console.log(valueChanges);
+
+    const wethusdt = await asyncUniswapV2ContractGetter("0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852")
+    const searchResult = await binarySearch(
+        10008355,
+        12000000,
+        async (block) => {
+            const reserves = await wethusdt.callStatic.getReserves({ blockTag: block });
+            return reserves[1].gt(BigNumber.from(1000000 * 10 ** 6 / 2)) ? -1 : 1;
+        }
+    )
+    console.log('found at ', searchResult);
+    console.log(await wethusdt.callStatic.getReserves({ blockTag: searchResult.location + 1 }))
 
     // console.log(await bs[100001].s.s.stalk);
     // console.log(await bs.s.s.stalk);

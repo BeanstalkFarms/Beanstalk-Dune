@@ -17,7 +17,7 @@ function retryable(asyncFunction, timeLimitMs = 10000, retryCount = 2) {
       })
       // asyncFunction failed or timed out, retry
       .catch((e) => {
-        console.log('[retryable] Error encountered, retrying: ', retryCount - 1, e);
+        // console.log('[retryable] Error encountered, retrying: ', retryCount - 1, e);
         retryable(asyncFunction, timeLimitMs, retryCount - 1).then(resolve).catch(reject);
       });
   });

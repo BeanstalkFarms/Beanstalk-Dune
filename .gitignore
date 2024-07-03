@@ -3,6 +3,7 @@ node_modules
 package-lock.json
 results/*
 !results/sample.csv
+cache/*
 .DS_Store
 test/random.js
 src/external-use/data

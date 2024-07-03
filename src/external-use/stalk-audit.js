@@ -8,7 +8,6 @@ const { bigintHex, bigintDecimal } = require('../utils/json-formatter.js');
 const { asyncBeanstalkContractGetter } = require('../datasources/contract-function.js');
 const retryable = require('../utils/retryable.js');
 const { tokenEq } = require('../utils/token.js');
-const { version } = require('punycode');
 
 let beanstalk;
 let bs;
@@ -30,12 +29,12 @@ let stemTips = {};
 
 const REPLANT_BLOCK = 15278963;
 const SILO_V3_BLOCK = 17671557;
-const EXPORT_BLOCK = 17000000; // unlabeled file was 20087633
+const EXPORT_BLOCK = 18218395; // unlabeled file was 20087633
 
 const BATCH_SIZE = 100;
 const WALLET_LIMIT = undefined;
-const specificWallet = undefined;// '0x0679be304b60cd6ff0c254a16ceef02cb19ca1b8'.toLowerCase();
-const dataFile = '17000000';
+const specificWallet = '0x3cc6cc687870c972127e073e05b956a1ee270164'.toLowerCase();
+const dataFile = '18218395';
 
 // Equivalent to LibBytes.packAddressAndStem
 function packAddressAndStem(address, stem) {
@@ -180,7 +179,6 @@ function calcDepositTotals(deposits) {
         deposits[account].totals[token].amount += deposits[account][token][stem].amount;
         deposits[account].totals[token].bdv += deposits[account][token][stem].bdv;
         if (deposits[account][token][stem].version === 'season') {
-          console.log(deposits[account][token][stem].bdv, getLegacySeedsPerToken(token) );
           deposits[account].totals[token].seeds += deposits[account][token][stem].bdv * getLegacySeedsPerToken(token);
         }
       }
