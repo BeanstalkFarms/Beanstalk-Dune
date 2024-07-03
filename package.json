@@ -4,6 +4,7 @@
     "ebip17": "node src/external-use/ebip-17.js",
     "stalk-audit": "node src/external-use/stalk-audit.js",
     "field-audit": "node src/external-use/field-audit.js",
+    "fert-audit": "node src/external-use/fert-audit.js",
     "playground": "node test/playground.js"
   },
   "dependencies": {

@@ -46,7 +46,7 @@ async function checkPlot(plot) {
   if (plot.harvestedPods == '0') {
     const contractPlotAmount = await bs.s.a[plot.farmer.id].field.plots[plot.index];
     if (BigInt(plot.pods) != contractPlotAmount) {
-      console.log(`Plot at index ${plot.index} for farmer ${plot.farmer.id} was not ${plot.pods}!`);
+      console.log(`Plot at index ${plot.index} for farmer ${plot.farmer.id} was not ${plot.pods}! (was ${contractPlotAmount})`);
     }
     if (plot.harvestablePods != '0') {
       sumUnharvested += BigInt(plot.harvestablePods);
