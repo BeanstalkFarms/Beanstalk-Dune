@@ -76,8 +76,12 @@ function decodeType(data, type, typesMapping) {
     return decodeArray(type, data, typesMapping);
   } else if (type.label === 'bool') {
     return data === '01';
-  } else if (type.label === 'address' || type.label.startsWith('contract')) {
-    return '0x' + data;
+  } else if (type.label === 'address' || type.label.startsWith('bytes') || type.label.startsWith('contract')) {
+    if (Array.isArray(data)) {
+      return '0x' + data.join('');
+    } else {
+      return '0x' + data;
+    }
   } else if (type.label.includes('int') || type.label.startsWith('enum')) {
     const { isUnsigned, dataSizeBits } = decodeTypeLabel(type, typesMapping);
     return dataToBN(data, isUnsigned, dataSizeBits);

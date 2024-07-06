@@ -67,7 +67,9 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
         }
         
         const returnType = types[returnProxy.__currentType];
-        if (returnType.label.includes('[')) {
+        const isArray = returnType.label.includes('[');
+        const isVariableBytes = returnType.encoding === 'bytes';
+        if (isArray || isVariableBytes) {
           // For array types, also attach a then method to the return proxy so the caller
           // has an option to get the whole array and iterate it.
           // Currently this only would be effective for flat arrays containing primitive types.
@@ -76,11 +78,11 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
           let arrayStart = -1;
           // Number of bytes to retrieve. Used in determining if more storage should be retrieved.
           let numberOfBytes = -1;
-          const bytesPerElement = types[returnType.base].numberOfBytes;
+          const bytesPerElement = isArray ? types[returnType.base].numberOfBytes : 32;
           // Max number of bytes that could be used by one array slot. For example, if its an array
           // of structs which are 10 bytes each, maxUsedBytesPerSlot = 30.
           const maxUsedBytesPerSlot = Math.floor(SLOT_SIZE / bytesPerElement) * bytesPerElement;
-          if (returnType.encoding === 'dynamic_array') {
+          if (returnType.encoding === 'dynamic_array' || isVariableBytes) {
             // The array begins at keccak(slot)
             const encodedSlot = abiCoder.encode(['uint256'], ["0x" + returnProxy.__storageSlot.toString(16)]);
             const keccak = ethers.keccak256(encodedSlot);
@@ -104,14 +106,28 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
                   }
                 });
               if (numberOfBytes === -1) {
-                getStorageAt(returnProxy.__storageSlot)
-                  .then(arraySize => {
-                    const elementsPerSlot = Math.floor(SLOT_SIZE / bytesPerElement);
-                    const totalSlots = Math.ceil(1 / elementsPerSlot * arraySize);
-                    const elementsInFinalSlot = arraySize % elementsPerSlot;
-                    numberOfBytes = (totalSlots - 1) * SLOT_SIZE + elementsInFinalSlot * bytesPerElement;
-                  })
-                  .then(getStorage);
+                if (isArray) {
+                  // Array: The regular storage slot contains the length of the array
+                  getStorageAt(returnProxy.__storageSlot)
+                    .then(arraySize => {
+                      const elementsPerSlot = Math.floor(SLOT_SIZE / bytesPerElement);
+                      const totalSlots = Math.ceil(1 / elementsPerSlot * arraySize);
+                      const elementsInFinalSlot = arraySize % elementsPerSlot;
+                      numberOfBytes = (totalSlots - 1) * SLOT_SIZE + elementsInFinalSlot * bytesPerElement;
+                    })
+                    .then(getStorage);
+                } else if (isVariableBytes) {
+                  // Bytes: the regular storage slot contains nothing and is keccak'd to get an offset value.
+                  // That offset value is used to point to the length of the bytes (number of slots used)
+                  getStorageAt(arrayStart)
+                    .then(async slotVal => {
+                      const startOffset = BigInt(slotVal);
+                      const numSlots = await getStorageAt(arrayStart + startOffset / 32n);
+                      arrayStart += startOffset / 32n + 1n;
+                      numberOfBytes = numSlots * SLOT_SIZE;
+                    })
+                    .then(getStorage);
+                }
               } else {
                 getStorage();
               }
@@ -125,7 +141,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
           // There are no further members, therefore this must be the end.
 
           const returnThenable = (resolve, reject) => {
-              // console.debug('Retrieving storage slot:', returnProxy.__storageSlot.toString(16));
+            // console.debug('Retrieving storage slot:', returnProxy.__storageSlot.toString(16));
             getStorageAt(returnProxy.__storageSlot)
               .then(valueAtSlot => {
                 // console.debug('slot:', valueAtSlot);
