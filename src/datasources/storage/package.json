@@ -1,6 +1,6 @@
 {
   "name": "@beanstalk/contract-storage",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Retrieves data from arbitrary contract storage variables/mappings etc.",
   "main": "./src/contract-storage.js",
   "types": "./src/contract-storage.d.ts",
