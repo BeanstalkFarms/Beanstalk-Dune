@@ -44,7 +44,7 @@ function makeProxyHandler(provider, contractAddress, types, blockNumber = 'lates
           // Mapping
           returnProxy = new Proxy({}, handler);
           let keyType = currentType.key.slice(2); // remove the "t_"
-          keyType = keyType.includes('contract') ? 'address' : keyType;
+          keyType = keyType.includes('contract') ? 'address' : keyType.includes('enum') ? 'uint8' : keyType;
           const encoded = abiCoder.encode([keyType, 'uint256'], [property, "0x" + target.__storageSlot.toString(16)]);
           const keccak = ethers.keccak256(encoded);
           returnProxy.__storageSlot = BigInt(keccak);
