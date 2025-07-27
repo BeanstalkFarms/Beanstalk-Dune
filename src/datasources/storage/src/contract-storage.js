@@ -213,7 +213,7 @@ class ContractStorage {
         }
 
         const returnProxy = new Proxy({}, fieldProxyHandler);
-        returnProxy.__storageSlot = BigInt(0);
+        returnProxy.__storageSlot = BigInt(requestedField[0].slot);
         returnProxy.__currentType = requestedField[0].type;
         return returnProxy;
       }
